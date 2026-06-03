@@ -8,7 +8,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
   
   try {
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent("Say 'Hello from Node.js' in one sentence.");
     console.log("✅ Gemini response:", result.response.text());

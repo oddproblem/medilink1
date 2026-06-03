@@ -1,0 +1,76 @@
+class Appointment {
+  final String id;
+  final String? patientId;
+  final String? patientName;
+  final String? doctorId;
+  final String? doctorName;
+  final String? doctorCouncil;
+  final DateTime appointmentDate;
+  final String reason;
+  final String status;
+
+  Appointment({
+    required this.id,
+    this.patientId,
+    this.patientName,
+    this.doctorId,
+    this.doctorName,
+    this.doctorCouncil,
+    required this.appointmentDate,
+    required this.reason,
+    required this.status,
+  });
+
+  factory Appointment.fromJson(Map<String, dynamic> json) {
+    final patient = json['patientId'];
+    final doctor = json['doctorId'];
+
+    return Appointment(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      patientId: _relationId(patient),
+      patientName: patient is Map
+          ? (patient['fullName'] ?? patient['name'])?.toString()
+          : null,
+      doctorId: _relationId(doctor),
+      doctorName: doctor is Map ? doctor['name']?.toString() : null,
+      doctorCouncil: doctor is Map ? doctor['council']?.toString() : null,
+      appointmentDate:
+          DateTime.tryParse(
+            (json['appointmentDate'] ?? json['date'] ?? '').toString(),
+          ) ??
+          DateTime.now(),
+      reason: (json['reason'] ?? 'General consultation').toString(),
+      status: (json['status'] ?? 'scheduled').toString(),
+    );
+  }
+
+  static String? _relationId(dynamic value) {
+    if (value is Map) return (value['_id'] ?? value['id'])?.toString();
+    return value?.toString();
+  }
+}
+
+class AppointmentsBundle {
+  final List<Appointment> openAppointments;
+  final List<Appointment> pastAppointments;
+
+  AppointmentsBundle({
+    required this.openAppointments,
+    required this.pastAppointments,
+  });
+
+  factory AppointmentsBundle.fromJson(Map<String, dynamic> json) {
+    List<Appointment> parseList(dynamic value) {
+      if (value is! List) return [];
+      return value
+          .whereType<Map>()
+          .map((item) => Appointment.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+
+    return AppointmentsBundle(
+      openAppointments: parseList(json['openAppointments']),
+      pastAppointments: parseList(json['pastAppointments']),
+    );
+  }
+}

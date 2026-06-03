@@ -59,3 +59,17 @@
 - Pagination.
 - Permissions.
 - Audit logs.
+
+## G. Feature Alignment (Server vs Client)
+- [x] Client-side Prescription OCR Scan UI: Integrate image selector/camera capture, trigger OCR upload to `/api/v1/ocr-prescriptions/upload`, track processing status, and render parsed prescription items.
+- [x] Client-side Disease Outbreak Hotspots Screen: Implement a view to query `/api/v1/hotspots` and display active disease hotspots on a map or card list.
+- [x] Client-side Emergency Dashboard: Implement a dedicated Emergency view listing emergency contacts, doctors, and hospitals, with a prominent "Trigger Emergency Alert" button calling `/api/v1/emergency/alert`.
+- [x] Client-side PDF Health Reports: Add a "Generate Report" option to patient dashboards to trigger PDF report generation via `/api/v1/report/generate`.
+
+## H. Static Multilingual Localization (Completed)
+- [x] Remove dynamic online translation API routes (`/api/v1/translate`) and controllers from the Express backend.
+- [x] Create and maintain static localized dictionaries (`_hiTexts`, `_mlTexts`, `_bnTexts`, `_taTexts`, `_teTexts`) offline in the Flutter client.
+- [x] Implement local lookup in `LanguageProvider` to instantly translate UI strings on language selection change without network dependencies.
+- [x] Clean up redundant duplicate files for `language_provider.dart`.
+- [x] Remove dynamic translation wrapper and listeners for AI-generated summaries on patient dashboard (render summaries in their raw English format).
+

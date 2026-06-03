@@ -6,11 +6,8 @@ const mongoose = require('mongoose');
  * @route   POST /api/readings
  * @access  Private
  */
-// controllers/dailyReadingController.js
-
 const addDailyReading = async (req, res) => {
   try {
-    // --- FIX APPLIED HERE ---
     // Instead of destructuring systolic and diastolic directly, we get the whole bloodPressure object.
     const { patientId, bloodPressure, weightKg, pulseRate, date } = req.body;
 
@@ -50,7 +47,6 @@ const addDailyReading = async (req, res) => {
 const updateDailyReading = async (req, res) => {
   try {
     const { id } = req.params;
-    // Destructure pulseRate and date from the body for updates
     const { systolic, diastolic, weightKg, pulseRate, date } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -67,8 +63,8 @@ const updateDailyReading = async (req, res) => {
     if (systolic) reading.bloodPressure.systolic = systolic;
     if (diastolic) reading.bloodPressure.diastolic = diastolic;
     if (weightKg) reading.weightKg = weightKg;
-    if (pulseRate) reading.pulseRate = pulseRate; // Added pulseRate update logic
-    if (date) reading.date = date; // Added date/time update logic
+    if (pulseRate) reading.pulseRate = pulseRate;
+    if (date) reading.date = date;
 
     const updatedReading = await reading.save();
     res.status(200).json(updatedReading);
@@ -78,9 +74,11 @@ const updateDailyReading = async (req, res) => {
   }
 };
 
-// controllers/dailyReadingController.js
-
-
+/**
+ * @desc    Get all readings for a specific patient
+ * @route   GET /api/readings/patient/:patientId
+ * @access  Private
+ */
 const getReadingsForPatient = async (req, res) => {
   try {
     const { patientId } = req.params;
@@ -92,8 +90,8 @@ const getReadingsForPatient = async (req, res) => {
     // Find all readings for the patient and sort them by date in ascending order
     const readings = await DailyReading.find({ patientId }).sort({ date: 'asc' });
 
+    // It's not an error if no readings are found; just return an empty array.
     if (!readings) {
-      // Return an empty array if no readings are found, which is not an error
       return res.status(200).json([]);
     }
 
@@ -105,8 +103,42 @@ const getReadingsForPatient = async (req, res) => {
 };
 
 
+/**
+ * @desc    Delete a daily reading by its ID
+ * @route   DELETE /api/readings/:id
+ * @access  Private
+ */
+const deleteDailyReading = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Validate the ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid reading ID format.' });
+    }
+
+    // 2. Find and delete the reading in one atomic operation
+    const deletedReading = await DailyReading.findByIdAndDelete(id);
+
+    // 3. Check if a reading was actually found and deleted
+    if (!deletedReading) {
+      return res.status(404).json({ message: 'Reading not found.' });
+    }
+
+    // 4. Send a success response
+    res.status(200).json({ message: 'Reading deleted successfully.' });
+
+  } catch (error) {
+    // 5. Handle any unexpected server errors
+    console.error('Error deleting daily reading:', error);
+    res.status(500).json({ message: 'Server error while deleting reading.' });
+  }
+};
+
+
 module.exports = {
   addDailyReading,
   updateDailyReading,
-  getReadingsForPatient, // <-- Export the new function
+  getReadingsForPatient,
+  deleteDailyReading, // <-- Export the new delete function
 };

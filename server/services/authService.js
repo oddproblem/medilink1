@@ -35,6 +35,7 @@ const registerUser = async (userData, password, email) => {
     email: email,
     gender: userData.gender,
     address: { street: userData.address },
+    age: userData.age,
   };
 
   // 4. Safely handle and parse the dateOfBirth

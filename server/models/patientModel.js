@@ -11,6 +11,7 @@ const patientSchema = new mongoose.Schema(
     dateOfBirth: { type: Date }, // No longer strictly required on creation
     gender: { type: String },
     address: { /* ... */ },
+    age: { type: Number },
     email: { type: String, unique: true, sparse: true }, // Not required, but must be unique if present
     phone: { type: String }, // Not required
     status: {

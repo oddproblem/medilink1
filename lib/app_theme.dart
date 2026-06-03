@@ -24,7 +24,6 @@ class AppTheme {
         primary: primary,
         secondary: accent,
         surface: Colors.white,
-        background: background,
         onSurface: const Color(0xFF1A202C), // Darker text for readability
       ),
       appBarTheme: const AppBarTheme(

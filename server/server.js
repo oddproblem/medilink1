@@ -16,7 +16,6 @@ const prescriptionRoutes = require("./routes/prescriptionRoutes");
 const historyRoutes = require("./routes/historyRoutes");
 const healthSummaryRoutes = require("./routes/healthSummaryRoutes");
 const noteRoutes = require("./routes/noteRoutes");
-const translationRoutes = require("./routes/translationRoutes");
 const authRoutes = require("./routes/authRoutes");
 const patientRoutes = require("./routes/patientRoutes");
 const doctorRoutes = require("./routes/doctorRoutes");
@@ -29,15 +28,18 @@ const emergencyContactRoutes = require('./routes/emergencyContactRoutes');
 const emergencyDoctorRoutes = require('./routes/emergencyDoctorRoutes');
 const emergencyHospitalRoutes = require('./routes/emergencyHospitalRoutes');
 const OcrPrescriptionRoutes = require('./routes/ocrPrescriptionRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
 const app = express();
 
 // ... (the rest of your server.js file is correct) ...
 app.use(express.json());
 app.use(cors());
+app.use('/uploads', express.static(path.join(__dirname, 'tmp')));
 
 // Mount routers
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/patients", patientRoutes);
+app.use("/api/v1/appointments", appointmentRoutes);
 app.use("/api/v1/doctors", doctorRoutes);
 app.use("/api/v1/report", reportRoutes);
 app.use("/api/v1/emergency", emergencyRoutes);
@@ -47,12 +49,15 @@ app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/summary", healthSummaryRoutes);
 app.use('/api/v1/readings', dailyReadingRoutes);
 app.use("/api/v1/verify", verifyRoutes);
-app.use("/api/v1", translationRoutes);
 app.use("/api/v1/hotspots", hotspotRoutes);
 app.use("/api/v1/emergency-contacts", emergencyContactRoutes);
 app.use("/api/v1/emergency-doctors", emergencyDoctorRoutes);
 app.use("/api/v1/emergency-hospitals", emergencyHospitalRoutes);
 app.use("/api/v1/ocr-prescriptions", OcrPrescriptionRoutes);
+
+app.get('/api/v1/health', (req, res) => {
+  res.status(200).json({ ok: true, timestamp: new Date() });
+});
 
 const PORT = process.env.PORT || 5000;
 
@@ -65,7 +70,7 @@ app.get('/api/v1/config/maps', (req, res) => {
   res.status(200).json({ apiKey });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(
     `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`
   );

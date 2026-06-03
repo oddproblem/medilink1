@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/network/ApiService.dart';
+import '../../app_theme.dart';
 
 class PatientSignInScreen extends StatefulWidget {
   const PatientSignInScreen({super.key});
@@ -89,6 +90,18 @@ class _PatientSignInScreenState extends State<PatientSignInScreen> {
                         ? const CircularProgressIndicator()
                         : const Text('Sign In'),
                   ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _aadhaar.text = '3395';
+                      _name.text = 'Priyanshu Upadhyay';
+                      _password.text = 'pass';
+                    });
+                  },
+                  icon: const Icon(Icons.flash_on, color: AppTheme.accent),
+                  label: const Text('Autofill Demo Account'),
                 ),
                 const SizedBox(height: 6),
                 Row(

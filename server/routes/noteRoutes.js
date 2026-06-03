@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getNotesByPatient, createNote, updateNote,deleteNote,restoreNote} = require('../controllers/noteController');
+const { protect } = require('../middleware/authMiddleware');
+const { getNotesByPatient, createNote, updateNote, deleteNote, restoreNote } = require('../controllers/noteController');
 
-// The router.use(protect) line is removed as requested.
+// Apply auth middleware to all note routes
+router.use(protect);
 
 // MODIFIED: This route now accepts a patientId
 router.route('/patient/:patientId').get(getNotesByPatient);

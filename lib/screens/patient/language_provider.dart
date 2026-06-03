@@ -1,77 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:medilink1/core/network/ApiService.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LanguageProvider with ChangeNotifier {
-  final ApiService _apiService;
+  // We keep the API service parameter in the constructor to maintain compatibility with callers,
+  // but we no longer need to execute translation requests on the server.
 
-  LanguageProvider(this._apiService) {
+  LanguageProvider([dynamic apiService]) {
     _loadFromCache();
   }
 
-  // --- Centralized Text Store ---
-  static const Map<String, String> _baseTexts = {
-    // Landing Screen
-    'landingTitle': 'SwiftMediLink',
-    'doctorSignIn': 'Doctor Sign In',
-    'patientSignIn': 'Patient Sign In',
-    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
-    'heroHeading': 'Medical Records\nReady Before\nArrival',
-    'heroDesc':
-        'With Aadhaar verification & AI-powered record extraction, doctors receive clean, actionable data before the stretcher arrives.',
-    'signIn': 'Sign in',
-    'statRegistered': 'Registered',
-    'statTreating': 'Being Treated',
-    'statDischarged': 'Discharged',
-    'footerSlogan':
-        'Smarter Care Journeys — From diagnosis to treatment, every step powered by connected records. ',
-    'footerLangs':
-        'Multilingual: Hindi • Bengali • Tamil • Malayalam • English',
-
-    // Patient Dashboard
-    'patientDashboardTitle': 'SwiftMediLink • Patient',
-    'logout': 'Log out',
-    'healthTrends': 'Health Trends',
-    'hospitalVisits': 'Hospital Visits',
-    'prescriptionsStored': 'Prescriptions Stored',
-    'healthSummary': 'Health Summary',
-    'noSummary': 'No summary available.',
-    'seeLess': 'See Less',
-    'seeMore': 'See More',
-    'currentMedicines': 'Current Medicines',
-    'medicineNameHint': 'Medicine name',
-    'newMedicineHint': 'New medicine name',
-    'add': 'Add',
-    'pastMedicines': 'Past Medicines',
-    'prescribedMedicines': 'Prescribed Medicines',
-    'noPrescribed':
-        'No prescribed medicines yet.\nConsult your doctor for prescriptions.',
-    'diseaseHistory': 'Disease History',
-    'noHistoryDetails': 'No details available',
-    'patientNotes': 'Patient Notes',
-    'addDailyReading': 'Add Daily Reading',
-    'emptyNote': 'Empty note',
-    'noNotes': 'No notes have been added yet.',
-    'notesHint': 'Write your symptoms or notes here...',
-    'saveNote': 'Save Note',
-    'removeTooltip': 'Remove',
-    'deleteNoteTooltip': 'Delete Note',
-    'deleteNoteTitle': 'Delete Note',
-    'deleteNoteConfirm':
-        'Are you sure you want to delete this note? This action cannot be undone.',
-    'cancel': 'Cancel',
-    'delete': 'Delete',
-    'addPrescriptionTooltip': 'Add Prescription',
-    'markAsCurrent': 'Mark as Current',
-    'markAsPast': 'Mark as Past',
-    'markAsPrescribed': 'Mark as Prescribed',
-    'noIllnessName': 'No illness name provided',
-    'noReadingsForChart': 'No readings available to display a chart.',
-    'noNoteContent': 'No content in this note.',
-  };
-
-  Map<String, String> _translations = Map.from(_baseTexts);
   String _selectedLanguage = 'en';
   bool _isTranslating = false;
 
@@ -87,21 +24,29 @@ class LanguageProvider with ChangeNotifier {
   // --- Getters ---
   String get selectedLanguage => _selectedLanguage;
   bool get isTranslating => _isTranslating;
-  String t(String key) => _translations[key] ?? _baseTexts[key] ?? key;
 
-  /// Loads the selected language and translations from device storage on app start.
+  String t(String key) {
+    if (_selectedLanguage == 'en') return _baseTexts[key] ?? key;
+
+    final Map<String, String>? translationMap = switch (_selectedLanguage) {
+      'hi' => _hiTexts,
+      'ml' => _mlTexts,
+      'bn' => _bnTexts,
+      'ta' => _taTexts,
+      'te' => _teTexts,
+      _ => null,
+    };
+
+    return translationMap?[key] ?? _baseTexts[key] ?? key;
+  }
+
+  /// Loads the selected language from device storage on app start.
   Future<void> _loadFromCache() async {
     final prefs = await SharedPreferences.getInstance();
     final langCode = prefs.getString('selectedLanguage');
-
-    if (langCode != null && langCode != 'en') {
-      final translationsString = prefs.getString('translations');
-      if (translationsString != null) {
-        _translations =
-            Map<String, String>.from(jsonDecode(translationsString));
-        _selectedLanguage = langCode;
-        notifyListeners();
-      }
+    if (langCode != null) {
+      _selectedLanguage = langCode;
+      notifyListeners();
     }
   }
 
@@ -110,46 +55,519 @@ class LanguageProvider with ChangeNotifier {
     if (langCode == _selectedLanguage) return;
 
     final prefs = await SharedPreferences.getInstance();
-
-    if (langCode == 'en') {
-      _translations = Map.from(_baseTexts);
-      _selectedLanguage = 'en';
-      await prefs.remove('selectedLanguage');
-      await prefs.remove('translations');
-      notifyListeners();
-      return;
-    }
-
-    _isTranslating = true;
+    _selectedLanguage = langCode;
+    await prefs.setString('selectedLanguage', langCode);
     notifyListeners();
-
-    try {
-      final keys = _baseTexts.keys.toList();
-      final values = _baseTexts.values.toList();
-      final translatedValues =
-          await _apiService.translateTexts(values, langCode);
-
-      final newTranslations = <String, String>{};
-      for (int i = 0; i < keys.length; i++) {
-        newTranslations[keys[i]] = translatedValues[i];
-      }
-
-      _translations = newTranslations;
-      _selectedLanguage = langCode;
-
-      // Save to SharedPreferences for persistence
-      await prefs.setString('selectedLanguage', langCode);
-      await prefs.setString('translations', jsonEncode(newTranslations));
-    } catch (e) {
-      debugPrint("Translation failed in Provider: $e");
-      // Fallback to English on failure
-      _translations = Map.from(_baseTexts);
-      _selectedLanguage = 'en';
-      await prefs.remove('selectedLanguage');
-      await prefs.remove('translations');
-    } finally {
-      _isTranslating = false;
-      notifyListeners();
-    }
   }
+
+  // --- Static Multilingual Dictionaries ---
+
+  static const Map<String, String> _baseTexts = {
+    // Welcome Screen
+    'welcomeTitle': 'Welcome to SwiftMedilink',
+    'welcomeSubtitle': 'Your Health, Connected.',
+    'getStarted': 'Get Started',
+
+    // Landing Screen
+    'landingTitle': 'SwiftMediLink',
+    'doctorSignIn': 'Doctor Sign In',
+    'patientSignIn': 'Patient Sign In',
+    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
+    'heroHeading': 'Medical Records\nReady Before\nArrival',
+    'heroDesc': 'With Aadhaar verification & AI-powered record extraction, doctors receive clean, actionable data before the stretcher arrives.',
+    'signIn': 'Sign in',
+    'statRegistered': 'Registered',
+    'statTreating': 'Being Treated',
+    'statDischarged': 'Discharged',
+    'footerSlogan': 'Smarter Care Journeys — From diagnosis to treatment, every step powered by connected records.',
+    'footerLangs': 'Multilingual: Hindi • Bengali • Tamil • Malayalam • English',
+
+    // Patient Dashboard
+    'patientDashboardTitle': 'SwiftMediLink • Patient',
+    'logout': 'Log out',
+    'healthTrends': 'Health Trends',
+    'hospitalVisits': 'Hospital Visits',
+    'prescriptionsStored': 'Prescriptions Stored',
+    'healthSummary': 'Health Summary',
+    'noSummary': 'No summary available.',
+    'seeLess': 'See Less',
+    'seeMore': 'See More',
+    'currentMedicines': 'Current Medicines',
+    'medicineNameHint': 'Medicine name',
+    'pastMedicines': 'Past Medicines',
+    'noPastMedicines': 'No past medicines found.',
+    'markAsPast': 'Mark as Past',
+    'markAsCurrent': 'Mark as Current',
+    'add': 'Add',
+    'prescribedMedicines': 'Prescribed Medicines',
+    'noPrescribed': 'No prescribed medicines yet.\nConsult your doctor for prescriptions.',
+    'diseaseHistory': 'Disease History',
+    'noHistoryDetails': 'No details available',
+    'patientNotes': 'Patient Notes',
+    'emptyNote': 'Empty note',
+    'noNotes': 'No notes have been added yet.',
+    'notesHint': 'Write your symptoms or notes here...',
+    'saveNote': 'Save Note',
+    'removeTooltip': 'Remove',
+    'addDailyReading': 'Add Daily Reading',
+    'systolic': 'Systolic',
+    'diastolic': 'Diastolic',
+    'systolicBP': 'Systolic BP',
+    'diastolicBP': 'Diastolic BP',
+    'weight': 'Weight',
+    'weightKg': 'Weight (Kg)',
+    'pulse': 'Pulse',
+    'pulseRate': 'Pulse Rate',
+    'saveReading': 'Save Reading',
+    'noReadingsForChart': 'No readings to display in chart.',
+
+    // Patient Sign Up
+    'patientSignUpTitle': 'Patient Sign Up',
+    'step1Title': 'Step 1: Verify your identity',
+    'step1Desc': 'We use DigiLocker to securely verify your Aadhaar details.',
+    'startDigilocker': 'Start DigiLocker Authentication',
+    'step2Title': 'Step 2: Complete Registration',
+    'emailHint': 'Enter your Email',
+    'passwordHint': 'Create a Password',
+    'createAccount': 'Create Account',
+
+    // Doctor/Patient Detail
+    'aiChatHint': "Ask a specific question about this patient's history, medications, or vitals.",
+    'newMedicineHint': 'New medicine name...',
+    'addPrescriptionTooltip': 'Add Prescription',
+    'doctorNotesHint': 'Write notes or observations here...',
+    'aiChatInputHint': 'Type your question...',
+    'markAsPrescribed': 'Mark as Prescribed',
+    'noIllnessName': 'No illness name provided',
+    'noNoteContent': 'No content',
+    'deleteNoteTooltip': 'Delete Note',
+    'deleteNoteTitle': 'Delete Note',
+    'deleteNoteConfirm': 'Are you sure you want to delete this note? This action cannot be undone.',
+    'cancel': 'Cancel',
+    'delete': 'Delete',
+
+    // Extra keys
+    'patientsUnderTreatment': 'Patients Under Treatment',
+    'Ask History, Medicines etc': 'Ask History, Medicines etc',
+    'Ask Ai': 'Ask AI',
+    'Type your query here...': 'Type your query here...',
+    'SwiftMedilink': 'SwiftMediLink',
+    'Swift way to manage patient records': 'Swift way to manage patient records',
+    'Sign In': 'Sign In',
+  };
+
+  static const Map<String, String> _hiTexts = {
+    'welcomeTitle': 'SwiftMedilink में आपका स्वागत है',
+    'welcomeSubtitle': 'आपका स्वास्थ्य, जुड़ा हुआ है।',
+    'getStarted': 'प्रारंभ करें',
+    'landingTitle': 'SwiftMediLink',
+    'doctorSignIn': 'डॉक्टर साइन इन',
+    'patientSignIn': 'रोगी साइन इन',
+    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
+    'heroHeading': 'आने से पहले मेडिकल रिकॉर्ड तैयार',
+    'heroDesc': 'आधार सत्यापन और एआई - संचालित रिकॉर्ड निष्कर्षण के साथ, डॉक्टरों को स्ट्रेचर के आने से पहले स्वच्छ, कार्रवाई योग्य डेटा प्राप्त होता है।',
+    'signIn': 'साइन इन करें',
+    'statRegistered': 'पंजीकृत किया गया',
+    'statTreating': 'इलाज किया जा रहा है',
+    'statDischarged': 'छुट्टी मिल गई',
+    'footerSlogan': 'स्मार्ट केयर जर्नी — निदान से लेकर उपचार तक, कनेक्टेड रिकॉर्ड द्वारा संचालित हर कदम।',
+    'footerLangs': 'बहुभाषी: हिंदी • बंगाली • तमिल • मलयालम • अंग्रेजी',
+    'patientDashboardTitle': 'SwiftMediLink • Patient',
+    'logout': 'लॉग आउट करें',
+    'healthTrends': 'स्वास्थ्य के रुझान',
+    'hospitalVisits': 'अस्पताल के दौरे',
+    'prescriptionsStored': 'संग्रहीत नुस्खे',
+    'healthSummary': 'स्वास्थ्य सारांश',
+    'noSummary': '(कोई सारांश उपलब्ध नहीं)',
+    'seeLess': 'कम देखें',
+    'seeMore': 'और देखें',
+    'currentMedicines': 'वर्तमान दवाएं',
+    'medicineNameHint': 'दवा का नाम',
+    'pastMedicines': 'पिछली दवाएं',
+    'noPastMedicines': 'कोई पुरानी दवा नहीं मिली।',
+    'markAsPast': 'अतीत के रूप में चिह्नित करें',
+    'markAsCurrent': 'वर्तमान के रूप में चिह्नित करें',
+    'add': 'जोड़ें',
+    'prescribedMedicines': 'निर्धारित दवाएं',
+    'noPrescribed': 'अभी तक कोई निर्धारित दवा नहीं है।\nस्क्रिप्शन के लिए अपने डॉक्टर से परामर्श करें।',
+    'diseaseHistory': 'रोग का इतिहास',
+    'noHistoryDetails': 'कोई विवरण उपलब्ध नहीं है',
+    'patientNotes': 'रोगी नोट्स',
+    'emptyNote': 'खाली नोट',
+    'noNotes': 'अभी तक कोई नोट नहीं जोड़ा गया है।',
+    'notesHint': 'अपने लक्षण या नोट यहाँ लिखें...',
+    'saveNote': 'नोट सेव करें',
+    'removeTooltip': 'हटाएँ',
+    'addDailyReading': 'दैनिक पठन जोड़ें',
+    'systolic': 'सिस्टोलिक',
+    'diastolic': 'डायस्टोलिक',
+    'systolicBP': 'सिस्टोलिक बीपी ',
+    'diastolicBP': 'डायस्टोलिक बीपी ',
+    'weight': 'भार',
+    'weightKg': 'वजन (किलोग्राम)',
+    'pulse': 'नाड़ी (Pulse) ',
+    'pulseRate': 'नाड़ी',
+    'saveReading': 'पठन सहेजें',
+    'noReadingsForChart': 'चार्ट में प्रदर्शित करने के लिए कोई रीडिंग नहीं है।',
+    'patientSignUpTitle': 'रोगी साइन अप',
+    'step1Title': 'चरण 1: अपनी पहचान वेरीफ़ाई करें',
+    'step1Desc': 'हम आपके आधार विवरण को सुरक्षित रूप से सत्यापित करने के लिए DigiLocker का उपयोग करते हैं।',
+    'startDigilocker': 'DigiLocker प्रमाणीकरण शुरू करें',
+    'step2Title': 'चरण 2: रजिस्ट्रेशन पूरा करें',
+    'emailHint': 'अपना ईमेल डालें.',
+    'passwordHint': 'पासवर्ड बनाएं',
+    'createAccount': 'अकाउंट बनाएं',
+    'aiChatHint': 'इस रोगी के इतिहास, दवाओं या अंगों के बारे में एक विशिष्ट प्रश्न पूछें।',
+    'newMedicineHint': 'नई दवा का नाम...',
+    'addPrescriptionTooltip': 'प्रिस्क्रिप्शन जोड़ें',
+    'doctorNotesHint': 'नोट या अवलोकन यहाँ लिखें...',
+    'aiChatInputHint': 'अपना सवाल टाइप करें...',
+    'markAsPrescribed': 'निर्धारित के रूप में चिह्नित करें',
+    'noIllnessName': 'कोई बीमारी का नाम नहीं दिया गया',
+    'noNoteContent': 'कोई विषयवस्तु नहीं',
+    'deleteNoteTooltip': 'इस नोट को मिटाएं',
+    'deleteNoteTitle': 'इस नोट को मिटाएं',
+    'deleteNoteConfirm': 'क्या आप वाकई इस नोट को हटाना चाहते हैं? इस कार्रवाई को पूर्ववत नहीं किया जा सकता।',
+    'cancel': 'रद्द करें',
+    'delete': 'हटाएँ',
+    'patientsUnderTreatment': 'मरीज़ जिनका इलाज चल रहा है',
+    'Ask History, Medicines etc': 'इतिहास, दवाओं आदि से पूछें',
+    'Ask Ai': 'AI से पूछें',
+    'Type your query here...': 'अपनी क्वेरी यहाँ टाइप करें...',
+    'SwiftMedilink': 'SwiftMediLink',
+    'Swift way to manage patient records': 'मरीज़ के रिकॉर्ड को मैनेज करने का तेज़ तरीका',
+    'Sign In': 'साइन इन करें',
+  };
+
+  static const Map<String, String> _mlTexts = {
+    'welcomeTitle': 'SwiftMedilink-ലേക്ക് സ്വാഗതം',
+    'welcomeSubtitle': 'നിങ്ങളുടെ ആരോഗ്യം, ബന്ധിപ്പിച്ചിരിക്കുന്നു.',
+    'getStarted': 'ആരംഭിക്കുക',
+    'landingTitle': 'SwiftMediLink',
+    'doctorSignIn': 'ഡോക്ടർ സൈൻ ഇൻ ചെയ്യുക',
+    'patientSignIn': 'രോഗി പ്രവേശിക്കുന്നു',
+    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
+    'heroHeading': 'എത്തിച്ചേരുന്നതിന് മുമ്പ് തയ്യാറാക്കിയ മെഡിക്കൽ റെക്കോർഡുകൾ',
+    'heroDesc': 'ആധാർ വെരിഫിക്കേഷനും AI- പവർഡ് റെക്കോർഡ് എക്‌സ്‌ട്രാക്ഷനും ഉപയോഗിച്ച്, സ്ട്രെച്ചർ എത്തുന്നതിനുമുമ്പ് ഡോക്ടർമാർക്ക് ശുദ്ധവും പ്രവർത്തനപരവുമായ ഡാറ്റ ലഭിക്കും.',
+    'signIn': 'പ്രവേശിക്കുക',
+    'statRegistered': 'രജിസ്റ്റർ ചെയ്തു',
+    'statTreating': 'ചികിത്സിക്കപ്പെടുന്നു',
+    'statDischarged': 'ഡിസ്ചാർജ് ചെയ്തു',
+    'footerSlogan': 'മികച്ച പരിചരണ യാത്രകൾ — രോഗനിർണയം മുതൽ ചികിത്സ വരെ, കണക്റ്റുചെയ്ത റെക്കോർഡുകൾ നൽകുന്ന ഓരോ ഘട്ടവും.',
+    'footerLangs': 'ബഹുഭാഷാ: ഹിന്ദി • ബംഗാളി • തമിഴ് • മലയാളം • ഇംഗ്ലീഷ്',
+    'patientDashboardTitle': 'SwiftMediLink • Patient',
+    'logout': 'ലോഗൗട്ട് ചെയ്യുക',
+    'healthTrends': 'ആരോഗ്യ പ്രവണതകൾ',
+    'hospitalVisits': 'ആശുപത്രി സന്ദർശനങ്ങൾ',
+    'prescriptionsStored': 'പ്രിസ്ക്രിപ്ഷനുകൾ സംഭരിച്ചു',
+    'healthSummary': 'ആരോഗ്യ സംഗ്രഹം',
+    'noSummary': 'ചുരുക്കത്തിലുളള വിവരം ലഭ്യമല്ല.',
+    'seeLess': 'കുറച്ച് കാണുക',
+    'seeMore': 'കൂടുതൽ കാണുക',
+    'currentMedicines': 'നിലവിലെ മരുന്നുകൾ',
+    'medicineNameHint': 'മരുന്നിന്റെ പേര്',
+    'pastMedicines': 'കഴിഞ്ഞ മരുന്നുകൾ',
+    'noPastMedicines': 'കഴിഞ്ഞ മരുന്നുകളൊന്നും കണ്ടെത്തിയില്ല.',
+    'markAsPast': 'ഭൂതകാലമായി അടയാളപ്പെടുത്തുക',
+    'markAsCurrent': 'നിലവിലുള്ളതായി അടയാളപ്പെടുത്തുക',
+    'add': 'കൂട്ടിചേര്‍ക്കുക',
+    'prescribedMedicines': 'നിർദ്ദിഷ്ട മരുന്നുകൾ',
+    'noPrescribed': 'ഇതുവരെ നിർദ്ദിഷ്ട മരുന്നുകളൊന്നുമില്ല.\n കുറിപ്പടികൾക്കായി ഡോക്ടറുമായി കൂടിയാലോചിക്കുക.',
+    'diseaseHistory': 'രോഗ ചരിത്രം',
+    'noHistoryDetails': 'വിശദാംശങ്ങളൊന്നും ലഭ്യമല്ല',
+    'patientNotes': 'രോഗിയുടെ കുറിപ്പുകൾ',
+    'emptyNote': 'ശൂന്യമായ കുറിപ്പ്',
+    'noNotes': 'കുറിപ്പുകളൊന്നും ഇതുവരെ ചേർത്തിട്ടില്ല.',
+    'notesHint': 'നിങ്ങളുടെ ലക്ഷണങ്ങളോ കുറിപ്പുകളോ ഇവിടെ എഴുതുക...',
+    'saveNote': 'കുറിപ്പ് സംരക്ഷിക്കുക',
+    'removeTooltip': 'നീക്കം ചെയ്യുക',
+    'addDailyReading': 'ദിവസേനയുള്ള വായന ചേർക്കുക',
+    'systolic': 'സിസ്റ്റോളിക്',
+    'diastolic': 'ഡയസ്റ്റോളിക്',
+    'systolicBP': 'സിസ്റ്റോളിക് ബിപി',
+    'diastolicBP': 'ഡയസ്റ്റോളിക് ബിപി',
+    'weight': 'ഭാരം',
+    'weightKg': 'ഭാരം (കി .ഗ്രാം)',
+    'pulse': 'പള്‍സ്',
+    'pulseRate': 'പൾസ് നിരക്ക്',
+    'saveReading': 'വായന സംരക്ഷിക്കുക',
+    'noReadingsForChart': 'ചാർട്ടിൽ പ്രദർശിപ്പിക്കുന്നതിന് റീഡിംഗുകളൊന്നുമില്ല.',
+    'patientSignUpTitle': 'രോഗി സൈൻ അപ്പ് ചെയ്യുക',
+    'step1Title': 'ഘട്ടം 1: നിങ്ങളുടെ ഐഡന്റിറ്റി പരിശോധിക്കുക',
+    'step1Desc': 'നിങ്ങളുടെ ആധാർ വിശദാംശങ്ങൾ സുരക്ഷിതമായി പരിശോധിക്കാൻ ഞങ്ങൾ ഡിജിലോക്കർ ഉപയോഗിക്കുന്നു.',
+    'startDigilocker': 'ഡിജിലോക്കർ പ്രാമാണീകരണം ആരംഭിക്കുക',
+    'step2Title': 'സ്റ്റെപ്പ് 2: രജിസ്ട്രേഷൻ പൂർത്തിയാക്കുക',
+    'emailHint': ' ഇമെയിൽ ഐഡി നൽകുക.',
+    'passwordHint': 'ഒരു പാസ്‌വേഡ് സൃഷ്ടിക്കുക',
+    'createAccount': 'അക്കൗണ്ട് സൃഷ്‌ടിക്കുക',
+    'aiChatHint': 'ഈ രോഗിയുടെ ചരിത്രം, മരുന്നുകൾ അല്ലെങ്കിൽ ജീവജാലങ്ങൾ എന്നിവയെക്കുറിച്ച് ഒരു പ്രത്യേക ചോദ്യം ചോദിക്കുക.',
+    'newMedicineHint': 'പുതിയ മരുന്നിന്റെ പേര്...',
+    'addPrescriptionTooltip': 'കുറിപ്പടി ചേർക്കുക',
+    'doctorNotesHint': 'കുറിപ്പുകളോ നിരീക്ഷണങ്ങളോ ഇവിടെ എഴുതുക...',
+    'aiChatInputHint': 'നിങ്ങളുടെ ചോദ്യം ടൈപ്പ് ചെയ്യുക...',
+    'markAsPrescribed': 'നിർദ്ദിഷ്ടമെന്ന് അടയാളപ്പെടുത്തുക',
+    'noIllnessName': 'രോഗത്തിന്റെ പേരുകളൊന്നും നൽകിയിട്ടില്ല',
+    'noNoteContent': 'ഉള്ളടക്കമില്ല',
+    'deleteNoteTooltip': 'കുറിപ്പ് ഇല്ലാതാക്കുക',
+    'deleteNoteTitle': 'കുറിപ്പ് ഇല്ലാതാക്കുക',
+    'deleteNoteConfirm': 'ഈ കുറിപ്പ് ഇല്ലാതാക്കാൻ നിങ്ങൾ തീർച്ചയായും ആഗ്രഹിക്കുന്നുണ്ടോ? ഈ പ്രവർത്തനം പഴയപടിയാക്കാൻ കഴിയില്ല.',
+    'cancel': 'റദ്ദാക്കുക',
+    'delete': 'ഇല്ലാതാക്കുക',
+    'patientsUnderTreatment': 'ചികിത്സയിലുള്ള രോഗികൾ',
+    'Ask History, Medicines etc': 'ചരിത്രം, മരുന്നുകൾ മുതലായവ ചോദിക്കുക',
+    'Ask Ai': 'AI ചോദിക്കുക',
+    'Type your query here...': 'നിങ്ങളുടെ ചോദ്യം ഇവിടെ ടൈപ്പ് ചെയ്യുക...',
+    'SwiftMedilink': 'SwiftMediLink',
+    'Swift way to manage patient records': 'രോഗിയുടെ റെക്കോർഡുകൾ കൈകാര്യം ചെയ്യുന്നതിനുള്ള ദ്രുത മാർഗം',
+    'Sign In': 'സൈന്‍ഇന്‍ചെയ്യുക',
+  };
+
+  static const Map<String, String> _bnTexts = {
+    'welcomeTitle': 'SwiftMedilink-এ স্বাগতম',
+    'welcomeSubtitle': 'আপনার স্বাস্থ্য, সংযুক্ত ।',
+    'getStarted': 'শুরু করে দেওয়া হয়েছে',
+    'landingTitle': 'SwiftMediLink',
+    'doctorSignIn': 'ডাক্তার সাইন ইন করুন',
+    'patientSignIn': 'রোগীর সাইন ইন',
+    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
+    'heroHeading': 'পৌঁছানোর আগে মেডিকেল রেকর্ড প্রস্তুত',
+    'heroDesc': 'আধার যাচাইকরণ এবং এআই-চালিত রেকর্ড নিষ্কাশন সহ, স্ট্রেচার আসার আগে ডাক্তাররা পরিষ্কার, কার্যকরযোগ্য ডেটা পান ।',
+    'signIn': 'সাইন ইন',
+    'statRegistered': 'নিবন্ধিত',
+    'statTreating': 'চিকিৎসা করা হচ্ছে',
+    'statDischarged': 'কারামুক্ত',
+    'footerSlogan': 'স্মার্ট কেয়ার জার্নি — রোগ নির্ণয় থেকে চিকিৎসা পর্যন্ত, সংযুক্ত রেকর্ড দ্বারা চালিত প্রতিটি পদক্ষেপ ।',
+    'footerLangs': 'বহুভাষিক: হিন্দি • বাংলা • তামিল • মালায়ালাম • ইংরেজি',
+    'patientDashboardTitle': 'SwiftMediLink • Patient',
+    'logout': 'লগ আউট করুন',
+    'healthTrends': 'স্বাস্থ্য প্রবণতা',
+    'hospitalVisits': 'হাসপাতালের ভিজিট',
+    'prescriptionsStored': 'প্রেসক্রিপশন সংরক্ষণ করা হয়েছে',
+    'healthSummary': 'স্বাস্থ্য সারসংক্ষেপ',
+    'noSummary': 'কোনো সারসংক্ষেপ নেই।',
+    'seeLess': 'কম দেখুন',
+    'seeMore': 'আরও দেখুন',
+    'currentMedicines': 'বর্তমান ওষুধ',
+    'medicineNameHint': 'ওষুধের নাম',
+    'pastMedicines': 'অতীতের ওষুধ',
+    'noPastMedicines': 'অতীতের কোনও ওষুধ পাওয়া যায়নি ।',
+    'markAsPast': 'অতীত হিসাবে চিহ্নিত করুন',
+    'markAsCurrent': 'বর্তমান হিসাবে চিহ্নিত করুন',
+    'add': 'যোগ করুন',
+    'prescribedMedicines': 'নির্ধারিত ওষুধ',
+    'noPrescribed': 'এখনও কোনও নির্ধারিত ওষুধ নেই ।\nপ্রেসক্রিপশনের জন্য আপনার ডাক্তারের সাথে পরামর্শ করুন ।',
+    'diseaseHistory': 'রোগের ইতিহাস',
+    'noHistoryDetails': 'কোনও বিবরণ উপলব্ধ নেই',
+    'patientNotes': 'রোগীর নোট',
+    'emptyNote': 'খালি নোট',
+    'noNotes': 'এখনও কোনও নোট যোগ করা হয়নি ।',
+    'notesHint': 'এখানে আপনার লক্ষণ বা নোট লিখুন...',
+    'saveNote': 'নোট সেভ করুন',
+    'removeTooltip': 'সরান',
+    'addDailyReading': 'ডেইলি রিডিং যোগ করুন',
+    'systolic': 'সিস্টোলিক',
+    'diastolic': 'ডায়াস্টোলিক',
+    'systolicBP': 'সিস্টোলিক BP',
+    'diastolicBP': 'ডায়াস্টোলিক BP',
+    'weight': 'ওজন',
+    'weightKg': 'ওজন (কেজি)',
+    'pulse': 'পালস',
+    'pulseRate': 'নাড়ির হার',
+    'saveReading': 'পড়া সংরক্ষণ করুন',
+    'noReadingsForChart': 'চার্টে দেখানোর মতো কোনো রিডিং নেই ।',
+    'patientSignUpTitle': 'রোগীর সাইন আপ',
+    'step1Title': 'ধাপ 1: আপনার পরিচয় যাচাই করুন',
+    'step1Desc': 'আপনার আধারের বিবরণ নিরাপদে যাচাই করতে আমরা DigiLocker ব্যবহার করি ।',
+    'startDigilocker': 'DigiLocker প্রমাণীকরণ শুরু করুন',
+    'step2Title': 'ধাপ 2: রেজিস্ট্রেশন সম্পূর্ণ করুন',
+    'emailHint': 'আপনার ইমেল ঠিকানা লিখুন',
+    'passwordHint': 'একটি পাসওয়ার্ড তৈরি করুন',
+    'createAccount': 'অ্যাকাউন্ট তৈরি করুন',
+    'aiChatHint': 'এই রোগীর ইতিহাস, ওষুধ বা অত্যাবশ্যকীয় বিষয় সম্পর্কে একটি নির্দিষ্ট প্রশ্ন জিজ্ঞাসা করুন ।',
+    'newMedicineHint': 'নতুন ওষুধের নাম...',
+    'addPrescriptionTooltip': 'প্রেসক্রিপশন যোগ করুন',
+    'doctorNotesHint': 'এখানে নোট বা পর্যবেক্ষণ লিখুন...',
+    'aiChatInputHint': 'এখানে তোমার প্রশ্ন লিখো.',
+    'markAsPrescribed': 'নির্ধারিত হিসাবে চিহ্নিত করুন',
+    'noIllnessName': 'কোনও অসুস্থতার নাম দেওয়া হয়নি',
+    'noNoteContent': 'কোনও বিষয়বস্তু নেই',
+    'deleteNoteTooltip': 'নোট মুছুন',
+    'deleteNoteTitle': 'নোট মুছুন',
+    'deleteNoteConfirm': 'আপনি কি নিশ্চিত যে আপনি এই নোটটি মুছে ফেলতে চান? এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যাবে না ।',
+    'cancel': 'বাতিল করুন',
+    'delete': 'মুছুন',
+    'patientsUnderTreatment': 'চিকিৎসাধীন রোগী',
+    'Ask History, Medicines etc': 'ইতিহাস, ওষুধ ইত্যাদি জিজ্ঞাসা করুন',
+    'Ask Ai': 'AI-কে জিজ্ঞাসা করুন',
+    'Type your query here...': 'এখানে আপনার ক্যোয়ারী টাইপ করুন...',
+    'SwiftMedilink': 'SwiftMediLink',
+    'Swift way to manage patient records': 'রোগীর রেকর্ড পরিচালনা করার দ্রুত উপায়',
+    'Sign In': 'সাইন ইন করুন',
+  };
+
+  static const Map<String, String> _taTexts = {
+    'welcomeTitle': 'ஸ்விஃப்ட்மெடிலிங்கிற்கு வரவேற்கிறோம்',
+    'welcomeSubtitle': 'உங்கள் உடல்நலம், இணைக்கப்பட்டுள்ளது.',
+    'getStarted': 'தொடங்குங்கள்',
+    'landingTitle': 'SwiftMediLink',
+    'doctorSignIn': 'மருத்துவர் உள்நுழைக',
+    'patientSignIn': 'நோயாளி உள்நுழைதல்',
+    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
+    'heroHeading': 'வருகைக்கு முன் மருத்துவப் பதிவேடுகள் தயார்',
+    'heroDesc': 'ஆதார் சரிபார்ப்பு மற்றும் AI மூலம் இயங்கும் பதிவு பிரித்தெடுத்தல் மூலம், ஸ்ட்ரெச்சர் வருவதற்கு முன்பு மருத்துவர்கள் சுத்தமான, செயல்படக்கூடிய தரவைப் பெறுகிறார்கள்.',
+    'signIn': 'உள்நுழைக',
+    'statRegistered': 'பதிவுசெய்யப்பட்டது',
+    'statTreating': 'சிகிச்சையளிக்கப்படுதல்',
+    'statDischarged': 'வெளியேற்றப்பட்டது',
+    'footerSlogan': 'சிறந்த பராமரிப்பு பயணங்கள் — நோயறிதல் முதல் சிகிச்சை வரை, இணைக்கப்பட்ட பதிவுகளால் இயக்கப்படும் ஒவ்வொரு படியும்.',
+    'footerLangs': 'பன்மொழி: இந்தி • பெங்காலி • தமிழ் • மலையாளம் • ஆங்கிலம்',
+    'patientDashboardTitle': 'SwiftMediLink • Patient',
+    'logout': 'வெளியேறு',
+    'healthTrends': 'சுகாதாரப் போக்குகள்',
+    'hospitalVisits': 'மருத்துவமனை வருகைகள்',
+    'prescriptionsStored': 'பரிந்துரைகள் சேமிக்கப்பட்டன',
+    'healthSummary': 'சுகாதாரச் சுருக்கம்',
+    'noSummary': '(விவரிப்பு இல்லை)',
+    'seeLess': 'குறைவாகக் காண்க',
+    'seeMore': 'மேலும் காண்க',
+    'currentMedicines': 'தற்போதைய மருந்துகள்',
+    'medicineNameHint': 'மருத்துவத்தின் பெயர்',
+    'pastMedicines': 'கடந்தகால மருந்துகள்',
+    'noPastMedicines': 'கடந்தகால மருந்துகள் எதுவும் காணப்படவில்லை.',
+    'markAsPast': 'கடந்த காலமாகக் குறிக்கவும்',
+    'markAsCurrent': 'நடப்பு என குறிக்கவும்',
+    'add': 'சேர்',
+    'prescribedMedicines': 'பரிந்துரைக்கப்பட்ட மருந்துகள்',
+    'noPrescribed': 'இதுவரை பரிந்துரைக்கப்பட்ட மருந்துகள் எதுவும் இல்லை.\n பரிந்துரைகளுக்காக உங்கள் மருத்துவரை அணுகவும்.',
+    'diseaseHistory': 'நோய் வரலாறு',
+    'noHistoryDetails': 'விவரங்கள் எதுவும் கிடைக்கவில்லை',
+    'patientNotes': 'நோயாளி குறிப்புகள்',
+    'emptyNote': 'காலியான குறிப்பு',
+    'noNotes': 'இதுவரை குறிப்புகள் எதுவும் சேர்க்கப்படவில்லை.',
+    'notesHint': 'உங்கள் அறிகுறிகள் அல்லது குறிப்புகளை இங்கே எழுதுங்கள்...',
+    'saveNote': 'குறிப்பைச் சேமிக்கவும்',
+    'removeTooltip': 'நீக்கு',
+    'addDailyReading': 'தினசரி வாசிப்பைச் சேர்க்கவும்',
+    'systolic': 'சிஸ்டாலிக்',
+    'diastolic': 'டயஸ்டாலிக்',
+    'systolicBP': 'சிஸ்டாலிக் பிபி',
+    'diastolicBP': 'டயஸ்டாலிக் பிபி',
+    'weight': 'எடை',
+    'weightKg': 'எடை (கிகி)',
+    'pulse': 'இதயத்துடிப்பு',
+    'pulseRate': 'இதயத் துடிப்பு',
+    'saveReading': 'வாசிப்பைச் சேமிக்கவும்',
+    'noReadingsForChart': 'விளக்கப்படத்தில் காட்ட எந்த ரீடிங்குகளும் இல்லை.',
+    'patientSignUpTitle': 'நோயாளி பதிவுசெய்தல்',
+    'step1Title': 'படி 1: உங்கள் அடையாளத்தைச் சரிபார்க்கவும்',
+    'step1Desc': 'உங்கள் ஆதார் விவரங்களைப் பாதுகாப்பாகச் சரிபார்க்க டிஜிலாக்கரைப் பயன்படுத்துகிறோம்.',
+    'startDigilocker': 'DigiLocker அங்கீகாரத்தைத் தொடங்கவும்',
+    'step2Title': 'படி 2: பதிவுசெய்தலை முடிக்கவும்',
+    'emailHint': 'மின்னஞ்சலை பதிவுசெய்யவும்',
+    'passwordHint': 'கடவுச்சொல்லை உருவாக்கவும்',
+    'createAccount': 'கணக்கை உருவாக்கவும்',
+    'aiChatHint': 'இந்த நோயாளியின் வரலாறு, மருந்துகள் அல்லது உயிர்ச்சத்துக்கள் குறித்து ஒரு குறிப்பிட்ட கேள்வியைக் கேளுங்கள்.',
+    'newMedicineHint': 'புதிய மருந்தின் பெயர்...',
+    'addPrescriptionTooltip': 'பரிந்துரைப்பைச் சேர்க்கவும்',
+    'doctorNotesHint': 'குறிப்புகள் அல்லது அவதானிப்புகளை இங்கே எழுதுங்கள்...',
+    'aiChatInputHint': 'உங்கள் கேள்வியைத் தட்டச்சு செய்க...',
+    'markAsPrescribed': 'பரிந்துரைக்கப்பட்டதாகக் குறிக்கவும்',
+    'noIllnessName': 'நோயின் பெயர் எதுவும் வழங்கப்படவில்லை',
+    'noNoteContent': 'உள்ளடக்கம் இல்லை',
+    'deleteNoteTooltip': 'குறிப்பை நீக்கவும்',
+    'deleteNoteTitle': 'குறிப்பை நீக்கவும்',
+    'deleteNoteConfirm': 'இந்தக் குறிப்பை நிச்சயமாக நீக்க விரும்புகிறீர்களா? இந்தச் செயலைச் செயல்தவிர்க்க முடியாது.',
+    'cancel': 'இரத்துச்செய்யவும்',
+    'delete': 'நீக்கு',
+    'patientsUnderTreatment': 'சிகிச்சையில் உள்ள நோயாளிகள்',
+    'Ask History, Medicines etc': 'வரலாறு, மருந்துகள் போன்றவற்றைக் கேளுங்கள்',
+    'Ask Ai': 'AI-ஐக் கேளுங்கள்',
+    'Type your query here...': 'உங்கள் கேள்வியை இங்கே தட்டச்சு செய்யவும்',
+    'SwiftMedilink': 'SwiftMediLink',
+    'Swift way to manage patient records': 'நோயாளியின் பதிவுகளை நிர்வகிக்க விரைவான வழி',
+    'Sign In': 'உள்நுழையவும்',
+  };
+
+  static const Map<String, String> _teTexts = {
+    'welcomeTitle': 'SwiftMedilinkకు స్వాగతం',
+    'welcomeSubtitle': 'మీ ఆరోగ్యం, కనెక్ట్ చేయబడింది.',
+    'getStarted': 'ప్రారంభించండి',
+    'landingTitle': 'SwiftMediLink',
+    'doctorSignIn': 'డాక్టర్ సైన్ ఇన్',
+    'patientSignIn': 'రోగి సైన్ ఇన్',
+    'heroTag': 'SwiftMediLink • Fast, Secure Patient Transfers',
+    'heroHeading': 'రాకకు ముందు వైద్య రికార్డులు సిద్ధంగా ఉన్నాయి',
+    'heroDesc': 'ఆధార్ ధృవీకరణ మరియు AI-శక్తితో రికార్డ్ వెలికితీతతో, స్ట్రెచర్ రాకముందే వైద్యులు శుభ్రమైన, చర్య తీసుకోగల డేటాను అందుకుంటారు.',
+    'signIn': 'సైన్ ఇన్',
+    'statRegistered': 'నమోదు చేయబడింది',
+    'statTreating': 'చికిత్స చేయబడుట',
+    'statDischarged': 'డిశ్చార్జ్ చేయబడింది',
+    'footerSlogan': 'తెలివైన సంరక్షణ ప్రయాణాలు — రోగ నిర్ధారణ నుండి చికిత్స వరకు, కనెక్ట్ చేయబడిన రికార్డుల ద్వారా శక్తినిచ్చే ప్రతి దశ.',
+    'footerLangs': 'బహుభాషా: హిందీ • బెంగాలీ • తమిళం • మలయాళం • ఇంగ్లీష్',
+    'patientDashboardTitle': 'SwiftMediLink • Patient',
+    'logout': 'లాగ్‌అవుట్',
+    'healthTrends': 'ఆరోగ్య పోకడలు',
+    'hospitalVisits': 'ఆసుపత్రి సందర్శనలు',
+    'prescriptionsStored': 'ప్రిస్క్రిప్షన్ ‌ లు నిల్వ చేయబడ్డాయి',
+    'healthSummary': 'ఆరోగ్య సారాంశం',
+    'noSummary': 'సారాంశం అందుబాటులో లేదు.',
+    'seeLess': 'తక్కువ చూడండి',
+    'seeMore': 'మరిన్ని చూడండి',
+    'currentMedicines': 'ప్రస్తుత మందులు',
+    'medicineNameHint': 'ఔషధం పేరు',
+    'pastMedicines': 'గత మందులు',
+    'noPastMedicines': 'గత మందులు ఏవీ కనుగొనబడలేదు.',
+    'markAsPast': 'గతంగా గుర్తించండి',
+    'markAsCurrent': 'కరెంట్ ‌ గా గుర్తించండి',
+    'add': 'చేర్చు',
+    'prescribedMedicines': 'సూచించిన మందులు',
+    'noPrescribed': 'ఇంకా సూచించిన మందులు లేవు.\n ప్రిస్క్రిప్షన్ ‌ ల కోసం మీ వైద్యుడిని సంప్రదించండి.',
+    'diseaseHistory': 'వ్యాధి చరిత్ర',
+    'noHistoryDetails': 'వివరాలు అందుబాటులో లేవు',
+    'patientNotes': 'రోగి గమనికలు',
+    'emptyNote': 'ఖాళీ గమనిక',
+    'noNotes': 'ఇంకా నోట్స్ ఏవీ జోడించబడలేదు.',
+    'notesHint': 'మీ లక్షణాలు లేదా గమనికలను ఇక్కడ రాయండి...',
+    'saveNote': 'గమనికను సేవ్ చేయండి',
+    'removeTooltip': ' తొలగించు',
+    'addDailyReading': 'రోజువారీ పఠనాన్ని జోడించండి',
+    'systolic': 'సిస్టోలిక్:',
+    'diastolic': 'డయాస్టొలిక్:',
+    'systolicBP': 'సిస్టోలిక్ బిపి',
+    'diastolicBP': 'డయాస్టొలిక్ బిపి',
+    'weight': 'బరువు',
+    'weightKg': 'బరువు (కిలోలు)',
+    'pulse': 'పల్స్',
+    'pulseRate': 'పల్స్ రేటు',
+    'saveReading': 'పఠనాన్ని సేవ్ చేయండి',
+    'noReadingsForChart': 'చార్ట్ ‌ లో ప్రదర్శించడానికి రీడింగ్ ‌ లు లేవు.',
+    'patientSignUpTitle': 'రోగి సైన్ అప్ చేయండి',
+    'step1Title': 'దశ 1: మీ గుర్తింపును ధృవీకరించండి',
+    'step1Desc': 'మీ ఆధార్ వివరాలను సురక్షితంగా ధృవీకరించడానికి మేము డిజిలాకర్ ‌ ను ఉపయోగిస్తాము.',
+    'startDigilocker': 'డిజిలాకర్ ప్రామాణీకరణను ప్రారంభించండి',
+    'step2Title': 'దశ 2: రిజిస్ట్రేషన్ పూర్తి చేయండి',
+    'emailHint': 'మీ ఇమెయిల్‌ను నమోదు చేయండి',
+    'passwordHint': 'పాస్ ‌ వర్డ్ ‌ ను సృష్టించండి',
+    'createAccount': 'ఒక అకౌంట్ సృష్టించండి',
+    'aiChatHint': 'ఈ రోగి యొక్క చరిత్ర, మందులు లేదా ప్రాణాధారాల గురించి ఒక నిర్దిష్ట ప్రశ్న అడగండి.',
+    'newMedicineHint': 'కొత్త ఔషధం పేరు...',
+    'addPrescriptionTooltip': 'ప్రిస్క్రిప్షన్ జోడించండి',
+    'doctorNotesHint': 'గమనికలు లేదా పరిశీలనలను ఇక్కడ రాయండి...',
+    'aiChatInputHint': 'మీ ప్రశ్నను టైప్ చేయండి...',
+    'markAsPrescribed': 'సూచించినట్లుగా గుర్తించండి',
+    'noIllnessName': 'అనారోగ్య పేరు ఏదీ అందించబడలేదు',
+    'noNoteContent': 'కంటెంట్ లేదు',
+    'deleteNoteTooltip': 'గమనికను తొలగించండి',
+    'deleteNoteTitle': 'గమనికను తొలగించండి',
+    'deleteNoteConfirm': 'మీరు ఖచ్చితంగా ఈ గమనికను తొలగించాలనుకుంటున్నారా? ఈ చర్యను రద్దు చేయలేము.',
+    'cancel': 'రద్దు',
+    'delete': 'తొలగించండి',
+    'patientsUnderTreatment': 'చికిత్స పొందుతున్న రోగులు',
+    'Ask History, Medicines etc': 'చరిత్ర, మందులు మొదలైనవి అడగండి',
+    'Ask Ai': 'AIని అడగండి',
+    'Type your query here...': 'మీ ప్రశ్నను ఇక్కడ టైప్ చేయండి...',
+    'SwiftMedilink': 'SwiftMediLink',
+    'Swift way to manage patient records': 'రోగి రికార్డులను నిర్వహించడానికి వేగండైన మార్గం',
+    'Sign In': 'సైన్ ఇన్ చేయి',
+  };
 }

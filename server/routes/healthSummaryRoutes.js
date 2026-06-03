@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 const {
     getHealthSummary,
     generateHealthSummary,
-    queryHealthData,generateAndEmailSummary
-} = require('../controllers/healthSummaryController'); // Adjust path as needed
+    queryHealthData,
+    generateAndEmailSummary
+} = require('../controllers/healthSummaryController');
 
-// A router to handle authentication would go here
-// const { protect } = require('../middleware/authMiddleware');
+// Apply auth middleware to all health summary routes
+router.use(protect);
 
-// GET a patient's saved health summary -> THIS FIXES THE 404 ERROR
+// GET a patient's saved health summary
 router.get('/patient/:patientId', getHealthSummary);
 
 // POST to generate a new health summary

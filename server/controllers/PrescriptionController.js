@@ -204,6 +204,33 @@ exports.updateMedicineStatus = async (req, res) => {
   }
 };
 
+exports.deleteMedicineFromPrescription = async (req, res) => {
+  try {
+    const { prescriptionId, medicineId } = req.params;
+
+    const prescription = await Prescription.findById(prescriptionId);
+
+    if (!prescription) {
+      return res.status(404).json({ message: 'Prescription not found.' });
+    }
+
+    // Pull (remove) the medicine from the medicines array
+    prescription.medicines.pull({ _id: medicineId });
+
+    await prescription.save();
+    
+    // Repopulate to send the full object back
+    const populatedPrescription = await Prescription.findById(prescriptionId)
+        .populate('doctorId', 'name')
+        .populate('diseaseHistoryId', 'illnessName');
+
+    res.status(200).json(populatedPrescription);
+
+  } catch (error) {
+    console.error('Error deleting medicine from prescription:', error);
+    res.status(500).json({ message: 'Server error while deleting medicine.' });
+  }
+};
 
 /**
  * @desc      Delete a prescription

@@ -12,6 +12,8 @@ import '../../core/models/DailyReading.dart';
 import '../../core/models/Note.dart';
 import '../../core/models/HealthSummary.dart';
 import 'disease_history_screen.dart'; // Re-add import
+import 'patient_prescriptions_screen.dart';
+import 'trends_detail_screen.dart';
 import '../../core/network/ApiService.dart';
 import 'language_provider.dart';
 
@@ -40,8 +42,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   HealthSummary? healthSummary;
   bool isLoading = true;
   bool _isSummaryExpanded = false;
+  bool _isRegeneratingSummary = false;
+  Note? _editingNote;
 
-  final _currentInput = TextEditingController();
   final _noteCtrl = TextEditingController();
 
   // Controllers for adding daily readings
@@ -50,8 +53,46 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   final _weightCtrl = TextEditingController();
   final _pulseCtrl = TextEditingController();
 
-  // State for dynamically translated content
-  String? _translatedSummary;
+  Future<void> _regenerateSummary() async {
+    final currentUser = _apiService.currentUser;
+    if (currentUser == null) return;
+    setState(() {
+      _isRegeneratingSummary = true;
+    });
+    try {
+      final summary = await _apiService.generateSummary({
+        'patientId': currentUser.id,
+      });
+      setState(() {
+        healthSummary = summary;
+        _isRegeneratingSummary = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI Health Summary regenerated successfully!')),
+      );
+    } catch (e) {
+      setState(() {
+        _isRegeneratingSummary = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to regenerate summary: $e')),
+      );
+    }
+  }
+
+  void _startEditNote(Note note) {
+    setState(() {
+      _editingNote = note;
+      _noteCtrl.text = note.noteText;
+    });
+  }
+
+  void _cancelEditNote() {
+    setState(() {
+      _editingNote = null;
+      _noteCtrl.clear();
+    });
+  }
 
   @override
   void initState() {
@@ -64,57 +105,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Listen to language changes to re-translate dynamic content
-    Provider.of<LanguageProvider>(context)
-        .addListener(_translateDynamicContent);
-  }
-
-  @override
   void dispose() {
-    Provider.of<LanguageProvider>(context, listen: false)
-        .removeListener(_translateDynamicContent);
-    _currentInput.dispose();
     _noteCtrl.dispose();
     _systolicCtrl.dispose();
     _diastolicCtrl.dispose();
     _weightCtrl.dispose();
     _pulseCtrl.dispose();
     super.dispose();
-  }
-
-  /// Translates dynamic content like the AI health summary when the language changes.
-  Future<void> _translateDynamicContent() async {
-    final langProvider = Provider.of<LanguageProvider>(context, listen: false);
-    final langCode = langProvider.selectedLanguage;
-
-    // If there's no summary, or it's empty, nothing to do.
-    if (healthSummary?.summary == null || healthSummary!.summary.isEmpty) {
-      setState(() => _translatedSummary = healthSummary?.summary);
-      return;
-    }
-
-    // If the language is English, just use the original summary.
-    if (langCode == 'en') {
-      setState(() => _translatedSummary = healthSummary?.summary);
-      return;
-    }
-
-    // Otherwise, call the API to translate it.
-    try {
-      final translated =
-          await _apiService.translateTexts([healthSummary!.summary], langCode);
-      if (mounted && translated.isNotEmpty) {
-        setState(() => _translatedSummary = translated.first);
-      }
-    } catch (e) {
-      debugPrint("Dynamic content translation failed: $e");
-      if (mounted) {
-        // Fallback to the original summary on error.
-        setState(() => _translatedSummary = healthSummary?.summary);
-      }
-    }
   }
 
   Future<void> _fetchPatientData() async {
@@ -137,8 +134,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop(); // Close dialog
-                  Navigator.of(context).pushNamedAndRemoveUntil('/landing',
-                      (Route<dynamic> route) => false); // Go to landing
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/landing',
+                    (Route<dynamic> route) => false,
+                  ); // Go to landing
                 },
                 child: const Text('Log In'),
               ),
@@ -170,8 +169,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         HealthSummary? summaryData = results[3] as HealthSummary?;
         // If no summary exists, generate one now.
         if (summaryData == null) {
-          summaryData =
-              await _apiService.generateSummary({'patientId': patientId});
+          summaryData = await _apiService.generateSummary({
+            'patientId': patientId,
+          });
         }
         final readingsList = results[4] as List<DailyReading>;
 
@@ -191,54 +191,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           pastMeds =
               flatMeds.where((info) => info.medicine.status == 'past').toList();
           diseaseHistory = historyList;
-          notes = notesList as List<Note>;
-          healthSummary = summaryData as HealthSummary?;
-          //_translatedSummary = summaryData?.summary; // Initialize summary
+          notes = notesList;
+          healthSummary = summaryData;
           dailyReadings = readingsList;
           isLoading = false;
         });
-
-        // After fetching new data, re-translate dynamic content if necessary.
-        await _translateDynamicContent();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load data: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load data: $e')));
         debugPrint("Failed to load patient data: $e");
       }
-    }
-  }
-
-  Future<void> _addCurrent() async {
-    final t = _currentInput.text.trim();
-    if (t.isEmpty) return;
-    try {
-      final currentUser = _apiService.currentUser;
-      if (currentUser == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not logged in')),
-        );
-        return;
-      }
-      // This payload matches the backend model structure where 'medicines' is a list of objects.
-      final data = {
-        "patientId": currentUser.id,
-        "medicines": [
-          {"name": t, "status": "current"}
-        ],
-      };
-      await _apiService.createPrescription(data);
-      await _fetchPatientData();
-      _currentInput.clear();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add current medicine: $e')),
-      );
     }
   }
 
@@ -247,15 +215,18 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       // "Deleting" a medicine is implemented by setting its status to 'past'.
       // This moves it from the "Current" or "Prescribed" list to the "Past" list.
       await _apiService.updateMedicineStatus(
-          medInfo.prescriptionId, medInfo.medicine.id, {"status": "past"});
+        medInfo.prescriptionId,
+        medInfo.medicine.id,
+        {"status": "past"},
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('"${medInfo.medicine.name}" marked as past.')),
       );
       await _fetchPatientData(); // Refresh the lists
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update medicine: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update medicine: $e')));
       debugPrint("Failed to mark medicine as past: $e");
     }
   }
@@ -263,16 +234,20 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   Future<void> _markMedicineAsCurrent(_MedicineInfo medInfo) async {
     try {
       await _apiService.updateMedicineStatus(
-          medInfo.prescriptionId, medInfo.medicine.id, {"status": "current"});
+        medInfo.prescriptionId,
+        medInfo.medicine.id,
+        {"status": "current"},
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('"${medInfo.medicine.name}" marked as current.')),
+          content: Text('"${medInfo.medicine.name}" marked as current.'),
+        ),
       );
       await _fetchPatientData(); // Refresh the lists
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update medicine: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update medicine: $e')));
       debugPrint("Failed to mark medicine as current: $e");
     }
   }
@@ -286,7 +261,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     if (systolic == null || diastolic == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please enter valid Blood Pressure values.')),
+          content: Text('Please enter valid Blood Pressure values.'),
+        ),
       );
       return;
     }
@@ -312,9 +288,61 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         const SnackBar(content: Text('Daily reading saved successfully!')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save reading: $e')),
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save reading: $e')));
+    }
+  }
+
+  Future<void> _generateHealthReport() async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text("Generating Health Report..."),
+            ],
+          ),
+        ),
       );
+
+      final response = await _apiService.generateHealthReport();
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: AppTheme.success),
+                SizedBox(width: 8),
+                Text('Report Dispatch'),
+              ],
+            ),
+            content: Text(
+              response['message'] ?? 'Your report has been successfully generated and sent to your registered email address.',
+              style: const TextStyle(height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate report: $e')),
+        );
+      }
     }
   }
 
@@ -328,12 +356,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         content: Text(langProvider.t('deleteNoteConfirm')),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(langProvider.t('cancel'))),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(langProvider.t('cancel')),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(langProvider.t('delete'),
-                style: const TextStyle(color: AppTheme.warning)),
+            child: Text(
+              langProvider.t('delete'),
+              style: const TextStyle(color: AppTheme.warning),
+            ),
           ),
         ],
       ),
@@ -348,9 +379,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       );
       await _fetchPatientData(); // Refresh list
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete note: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete note: $e')));
     }
   }
 
@@ -383,9 +414,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       if (reading.weightKg != null) {
         weightSpots.add(FlSpot(x, reading.weightKg!));
       }
-      if (reading.pulseRate != null) {
-        pulseSpots.add(FlSpot(x, reading.pulseRate!.toDouble()));
-      }
+      pulseSpots.add(FlSpot(x, reading.pulseRate.toDouble()));
     }
 
     // Define the line bars
@@ -402,22 +431,24 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           show: true,
           drawVerticalLine: true,
           getDrawingHorizontalLine: (value) => FlLine(
-              color: Theme.of(context).dividerColor.withOpacity(0.1),
-              strokeWidth: 1),
+            color: Theme.of(context).dividerColor.withOpacity(0.1),
+            strokeWidth: 1,
+          ),
           getDrawingVerticalLine: (value) => FlLine(
-              color: Theme.of(context).dividerColor.withOpacity(0.1),
-              strokeWidth: 1),
+            color: Theme.of(context).dividerColor.withOpacity(0.1),
+            strokeWidth: 1,
+          ),
         ),
         titlesData: FlTitlesData(
           leftTitles: const AxisTitles(
-              sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 40,
-          )),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -433,7 +464,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     child: Text(
                       DateFormat('d MMM').format(sortedReadings[index].date),
                       style: const TextStyle(
-                          fontSize: 10, color: AppTheme.textMuted),
+                        fontSize: 10,
+                        color: AppTheme.textMuted,
+                      ),
                     ),
                   );
                 }
@@ -477,10 +510,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 return LineTooltipItem(
                   text,
                   TextStyle(
-                      color: spot.bar.gradient?.colors.first ??
-                          spot.bar.color ??
-                          AppTheme.primary,
-                      fontWeight: FontWeight.bold),
+                    color: spot.bar.gradient?.colors.first ??
+                        spot.bar.color ??
+                        AppTheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 );
               }).toList();
             },
@@ -516,15 +550,24 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         automaticallyImplyLeading: false,
         title: Text(langProvider.t('patientDashboardTitle')),
         actions: [
+          IconButton(
+            onPressed: () =>
+                Navigator.of(context).pushNamed('/appointments/patient'),
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Appointments',
+          ),
           // Language Dropdown
           if (langProvider.isTranslating)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AppTheme.primary)),
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primary,
+                ),
+              ),
             )
           else
             DropdownButtonHideUnderline(
@@ -550,10 +593,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             onPressed: () {
               _apiService.logout();
               Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/landing', (Route<dynamic> route) => false);
+                '/landing',
+                (Route<dynamic> route) => false,
+              );
             },
-            child: Text(langProvider.t('logout'),
-                style: const TextStyle(color: Colors.white)),
+            child: Text(
+              langProvider.t('logout'),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -565,54 +612,210 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             children: [
-              // Top row: Chart + right stats (Hospital Visits / Prescriptions)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: SectionCard(
-                      title: langProvider.t('Health Trends'),
-                      child: SizedBox(
-                          height: 220,
-                          child: _buildInteractiveTrendsChart(langProvider)),
-                    ),
+              // Services & Emergency Hub Grid
+              Card(
+                color: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Services & Emergency Hub',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _quickActionTile(
+                              title: 'SOS Emergency',
+                              subtitle: 'Assistance & Alerts',
+                              icon: Icons.health_and_safety,
+                              color: Colors.red.shade800,
+                              onTap: () => Navigator.of(context).pushNamed('/emergency'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _quickActionTile(
+                              title: 'Prescription OCR',
+                              subtitle: 'Scan & Extract',
+                              icon: Icons.document_scanner,
+                              color: AppTheme.primary,
+                              onTap: () => Navigator.of(context).pushNamed('/ocr-scan'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _quickActionTile(
+                              title: 'Outbreak Hotspots',
+                              subtitle: 'Track Spread',
+                              icon: Icons.map_outlined,
+                              color: AppTheme.accent,
+                              onTap: () => Navigator.of(context).pushNamed('/hotspots'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _quickActionTile(
+                              title: 'PDF Health Report',
+                              subtitle: 'Email Medical History',
+                              icon: Icons.picture_as_pdf,
+                              color: Colors.orange,
+                              onTap: _generateHealthReport,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _quickActionTile(
+                              title: 'Skin Predictor',
+                              subtitle: 'AI Skin Scan',
+                              icon: Icons.center_focus_weak,
+                              color: Colors.cyan.shade700,
+                              onTap: () => Navigator.of(context).pushNamed('/disease-prediction'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _quickActionTile(
+                              title: 'Symptom Predictor',
+                              subtitle: 'AI Symptom Scan',
+                              icon: Icons.psychology_outlined,
+                              color: Colors.indigo.shade600,
+                              onTap: () => Navigator.of(context).pushNamed('/symptom-prediction'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        StatCard(
+                ),
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final chart = SectionCard(
+                    title: langProvider.t('Health Trends'),
+                    trailing: TextButton.icon(
+                      icon: const Icon(Icons.list_alt, size: 16, color: AppTheme.primary),
+                      label: const Text('View Logs', style: TextStyle(color: AppTheme.primary, fontSize: 13)),
+                      onPressed: () {
+                        final currentUser = _apiService.currentUser;
+                        if (currentUser == null) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TrendsDetailScreen(
+                              patientId: currentUser.id,
+                            ),
+                          ),
+                        ).then((_) => _fetchPatientData()); // Refresh if anything was deleted
+                      },
+                    ),
+                    child: SizedBox(
+                      height: 220,
+                      child: _buildInteractiveTrendsChart(langProvider),
+                    ),
+                  );
+                  final stats = Row(
+                    children: [
+                      Expanded(
+                        child: StatCard(
                           title: langProvider.t('hospitalVisits'),
                           value: diseaseHistory.length.toString(),
                           icon: Icons.local_hospital,
                           gradient: true,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DiseaseHistoryScreen(
+                                  history: diseaseHistory,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 12),
-                        StatCard(
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: StatCard(
                           title: langProvider.t('Prescriptions Stored'),
                           value: (currentMeds.length + prescribedMeds.length)
                               .toString(),
                           icon: Icons.medical_information,
                           gradient: true,
+                          onTap: () {
+                            final currentUser = _apiService.currentUser;
+                            if (currentUser == null) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PatientPrescriptionsScreen(
+                                  patientId: currentUser.id,
+                                ),
+                              ),
+                            ).then((_) => _fetchPatientData());
+                          },
                         ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  );
+
+                  if (constraints.maxWidth < 700) {
+                    return Column(
+                      children: [chart, const SizedBox(height: 12), stats],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 3, child: chart),
+                      const SizedBox(width: 14),
+                      Expanded(flex: 2, child: stats),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               SectionCard(
                 title: langProvider.t('Health Summary'),
+                trailing: _isRegeneratingSummary
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.primary,
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.refresh, color: AppTheme.primary),
+                        onPressed: _regenerateSummary,
+                        tooltip: 'Regenerate Summary',
+                      ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _translatedSummary ?? langProvider.t('No Summary'),
+                      healthSummary?.summary ?? langProvider.t('noSummary'),
                       style: const TextStyle(
-                          color: AppTheme.textMuted, height: 1.5),
+                        color: AppTheme.textMuted,
+                        height: 1.5,
+                      ),
                       maxLines: _isSummaryExpanded ? null : 3,
                       overflow: _isSummaryExpanded
                           ? TextOverflow.visible
@@ -622,11 +825,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                         (healthSummary?.summary.length ?? 0) > 150)
                       TextButton(
                         onPressed: () => setState(
-                            () => _isSummaryExpanded = !_isSummaryExpanded),
-                        child: Text(_isSummaryExpanded
-                            ? langProvider.t('seeLess')
-                            : langProvider.t('seeMore')),
-                      )
+                          () => _isSummaryExpanded = !_isSummaryExpanded,
+                        ),
+                        child: Text(
+                          _isSummaryExpanded
+                              ? langProvider.t('seeLess')
+                              : langProvider.t('seeMore'),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -640,244 +846,320 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     Row(
                       children: [
                         Expanded(
-                            child: TextField(
-                                controller: _systolicCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                    labelText: langProvider.t('systolicBP')))),
+                          child: TextField(
+                            controller: _systolicCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: langProvider.t('systolicBP'),
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
-                            child: TextField(
-                                controller: _diastolicCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                    labelText: langProvider.t('diastolicBP')))),
+                          child: TextField(
+                            controller: _diastolicCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: langProvider.t('diastolicBP'),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
-                            child: TextField(
-                                controller: _weightCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                    labelText: langProvider.t('weightKg')))),
+                          child: TextField(
+                            controller: _weightCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: langProvider.t('weightKg'),
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
-                            child: TextField(
-                                controller: _pulseCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                    labelText: langProvider.t('pulseRate')))),
+                          child: TextField(
+                            controller: _pulseCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: langProvider.t('pulseRate'),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _addDailyReading,
                       child: Text(langProvider.t('Save Reading')),
-                    )
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
-              LayoutBuilder(builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 600;
-                final currentMedsCard = SectionCard(
-                  title: langProvider.t('Current Medicines'),
-                  child: Column(
-                    children: [
-                      ..._buildMedicineList(currentMeds,
-                          onDelete: _markMedicineAsPast),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _currentInput,
-                              decoration: InputDecoration(
-                                  hintText: langProvider.t('medicineNameHint')),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 600;
+                  final currentMedsCard = SectionCard(
+                    title: langProvider.t('Current Medicines'),
+                    child: Column(
+                      children: [
+                        if (currentMeds.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text(
+                              'No active medicines. Prescriptions added by your doctor will appear here.',
+                              style: TextStyle(color: AppTheme.textMuted),
+                              textAlign: TextAlign.center,
                             ),
+                          )
+                        else
+                          ..._buildMedicineList(
+                            currentMeds,
+                            onDelete: _markMedicineAsPast,
                           ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            onPressed: _addCurrent,
-                            icon: const Icon(Icons.add),
-                            label: Text(langProvider.t('add')),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-                final pastMedsCard = SectionCard(
-                  title: langProvider.t('pastMedicines'), //
-                  child: Column(
-                    children: [
-                      if (pastMeds.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            langProvider.t('noPastMedicines') ??
-                                'No past medicines found.',
-                            style: const TextStyle(color: AppTheme.textMuted),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      else
-                        ..._buildPastMedicineList(pastMeds),
-                    ],
-                  ),
-                );
+                      ],
+                    ),
+                  );
+                  final pastMedsCard = SectionCard(
+                    title: langProvider.t('pastMedicines'), //
+                    child: Column(
+                      children: [
+                        if (pastMeds.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              langProvider.t('noPastMedicines'),
+                              style: const TextStyle(color: AppTheme.textMuted),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        else
+                          ..._buildPastMedicineList(pastMeds),
+                      ],
+                    ),
+                  );
 
-                if (isWide) {
-                  return Row(
-                    children: [
-                      Expanded(child: currentMedsCard),
-                      const SizedBox(width: 14),
-                      Expanded(child: pastMedsCard),
-                    ],
-                  );
-                } else {
-                  return Column(
-                    children: [
-                      currentMedsCard,
-                      const SizedBox(height: 16),
-                      pastMedsCard,
-                    ],
-                  );
-                }
-              }),
+                  if (isWide) {
+                    return Row(
+                      children: [
+                        Expanded(child: currentMedsCard),
+                        const SizedBox(width: 14),
+                        Expanded(child: pastMedsCard),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        currentMedsCard,
+                        const SizedBox(height: 16),
+                        pastMedsCard,
+                      ],
+                    );
+                  }
+                },
+              ),
               const SizedBox(height: 16),
 
-              LayoutBuilder(builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 600;
-                final diseaseHistoryCard = SectionCard(
-                  title: langProvider.t('diseaseHistory'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ...diseaseHistory.map((h) => _historyItem(
-                          h.illnessName.isNotEmpty
-                              ? h.illnessName
-                              : langProvider.t('noHistoryDetails'))),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.push(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 600;
+                  final diseaseHistoryCard = SectionCard(
+                    title: langProvider.t('diseaseHistory'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ...diseaseHistory.map(
+                          (h) => _historyItem(
+                            h.illnessName.isNotEmpty
+                                ? h.illnessName
+                                : langProvider.t('noHistoryDetails'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (_) => DiseaseHistoryScreen(
-                                        history: diseaseHistory)));
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primary,
-                            side: const BorderSide(color: AppTheme.primary),
+                                  builder: (_) => DiseaseHistoryScreen(
+                                    history: diseaseHistory,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primary,
+                              side: const BorderSide(color: AppTheme.primary),
+                            ),
+                            child: Text(langProvider.t('seeMore')),
                           ),
-                          child: Text(langProvider.t('seeMore')),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-                final patientNotesCard = SectionCard(
-                  title: langProvider.t('patientNotes'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (notes.isNotEmpty)
-                        ...notes.map((n) => Card(
+                      ],
+                    ),
+                  );
+                  final patientNotesCard = SectionCard(
+                    title: langProvider.t('patientNotes'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (notes.isNotEmpty)
+                          ...notes.map(
+                            (n) => Card(
                               color: AppTheme.background,
                               margin: const EdgeInsets.only(bottom: 8),
                               child: ListTile(
-                                leading: const Icon(Icons.note_alt_outlined,
-                                    color: AppTheme.textMuted),
+                                leading: const Icon(
+                                  Icons.note_alt_outlined,
+                                  color: AppTheme.textMuted,
+                                ),
                                 title: Text(
-                                    n.noteText ?? langProvider.t('emptyNote')),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      color: AppTheme.warning),
-                                  onPressed: () => _deleteNote(n.id),
-                                  tooltip: langProvider.t('deleteNoteTooltip'),
+                                  n.noteText,
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        color: AppTheme.primary,
+                                      ),
+                                      onPressed: () => _startEditNote(n),
+                                      tooltip: 'Edit Note',
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: AppTheme.warning,
+                                      ),
+                                      onPressed: () => _deleteNote(n.id),
+                                      tooltip: langProvider.t('deleteNoteTooltip'),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            )),
-                      if (notes.isEmpty)
-                        Text(
-                            langProvider.t('noNotes') ??
-                                'No notes have been added yet.',
-                            style: const TextStyle(color: AppTheme.textMuted)),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _noteCtrl,
-                        maxLines: 4,
-                        decoration: InputDecoration(
-                          hintText: langProvider.t('notesHint'),
+                            ),
+                          ),
+                        if (notes.isEmpty)
+                          Text(
+                            langProvider.t('noNotes'),
+                            style: const TextStyle(color: AppTheme.textMuted),
+                          ),
+                        const SizedBox(height: 16),
+                        if (_editingNote != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.edit, size: 14, color: AppTheme.primary),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'Editing Note...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const Spacer(),
+                                TextButton(
+                                  onPressed: _cancelEditNote,
+                                  child: const Text('Cancel Edit'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        TextField(
+                          controller: _noteCtrl,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: langProvider.t('notesHint'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final note = _noteCtrl.text.trim();
-                            if (note.isEmpty) return;
-                            try {
-                              final currentUser = _apiService.currentUser;
-                              if (currentUser == null) {
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final note = _noteCtrl.text.trim();
+                              if (note.isEmpty) return;
+                              try {
+                                final currentUser = _apiService.currentUser;
+                                if (currentUser == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('User not logged in'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                if (_editingNote != null) {
+                                  await _apiService.updateNote(_editingNote!.id, {
+                                    "patientId": currentUser.id,
+                                    "noteText": note,
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Note updated successfully'),
+                                    ),
+                                  );
+                                } else {
+                                  final data = {
+                                    "patientId": currentUser.id,
+                                    "noteText": note,
+                                  };
+                                  await _apiService.createNote(data);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Note saved successfully'),
+                                    ),
+                                  );
+                                }
+                                _noteCtrl.clear();
+                                setState(() {
+                                  _editingNote = null;
+                                });
+                                await _fetchPatientData();
+                              } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('User not logged in')),
+                                  SnackBar(
+                                    content: Text('Failed to save note: $e'),
+                                  ),
                                 );
-                                return;
                               }
-                              final data = {
-                                "patientId": currentUser.id,
-                                "noteText": note,
-                              };
-                              await _apiService.createNote(data);
-                              await _fetchPatientData();
-                              _noteCtrl.clear();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Note saved successfully')),
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                    content: Text('Failed to save note: $e')),
-                              );
-                            }
-                          },
-                          child: Text(langProvider.t('saveNote')),
+                            },
+                            child: Text(_editingNote != null ? 'Save Changes' : langProvider.t('saveNote')),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
+                      ],
+                    ),
+                  );
 
-                if (isWide) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: diseaseHistoryCard),
-                      const SizedBox(width: 14),
-                      Expanded(child: patientNotesCard),
-                    ],
-                  );
-                } else {
-                  return Column(
-                    children: [
-                      diseaseHistoryCard,
-                      const SizedBox(height: 16),
-                      patientNotesCard,
-                    ],
-                  );
-                }
-              }),
+                  if (isWide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: diseaseHistoryCard),
+                        const SizedBox(width: 14),
+                        Expanded(child: patientNotesCard),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        diseaseHistoryCard,
+                        const SizedBox(height: 16),
+                        patientNotesCard,
+                      ],
+                    );
+                  }
+                },
+              ),
             ],
           ),
         ),
@@ -885,8 +1167,14 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  Widget _medTile(String text, IconData icon, Color iconColor,
-      {required VoidCallback onAction, required String tooltip, Key? key}) {
+  Widget _medTile(
+    String text,
+    IconData icon,
+    Color iconColor, {
+    required VoidCallback onAction,
+    required String tooltip,
+    Key? key,
+  }) {
     return Card(
       key: key,
       color: AppTheme.background,
@@ -894,15 +1182,82 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       child: ListTile(
         title: Text(text),
         trailing: IconButton(
-            icon: Icon(icon, color: iconColor),
-            onPressed: onAction,
-            tooltip: tooltip),
+          icon: Icon(icon, color: iconColor),
+          onPressed: onAction,
+          tooltip: tooltip,
+        ),
       ),
     );
   }
 
-  List<Widget> _buildMedicineList(List<_MedicineInfo> medInfoList,
-      {required void Function(_MedicineInfo) onDelete}) {
+  Widget _quickActionTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF1A202C),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  List<Widget> _buildMedicineList(
+    List<_MedicineInfo> medInfoList, {
+    required void Function(_MedicineInfo) onDelete,
+  }) {
     if (medInfoList.isEmpty) return [const SizedBox.shrink()];
     final langProvider = Provider.of<LanguageProvider>(context, listen: false);
     return medInfoList.map((info) {
@@ -935,14 +1290,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   Widget _historyItem(String label) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(children: [
-        const Icon(Icons.history_edu_outlined,
-            size: 16, color: AppTheme.textMuted),
-        const SizedBox(width: 8),
-        Expanded(
-            child:
-                Text(label, style: const TextStyle(color: AppTheme.textMuted))),
-      ]),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.history_edu_outlined,
+            size: 16,
+            color: AppTheme.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: AppTheme.textMuted),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2,9 +2,12 @@
 
 const express = require('express');
 const router = express.Router();
+const { protect } = require('../middleware/authMiddleware');
 const { triggerAlert } = require('../controllers/emergencyController');
-const { protect, authorize } = require('../middleware/authMiddleware');
 
-//router.post('/alert', protect, authorize('patient'), triggerAlert);
+// Apply auth middleware to all emergency routes
+router.use(protect);
+
+router.post('/alert', triggerAlert);
 
 module.exports = router;

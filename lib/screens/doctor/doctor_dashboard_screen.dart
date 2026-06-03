@@ -1,12 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:medilink1/screens/patient_detail_screen.dart';
 import 'package:medilink1/core/models/Patient.dart';
 import 'package:medilink1/core/network/ApiService.dart';
-import 'package:medilink1/app_theme.dart';
 import 'package:medilink1/widgets/stat_card.dart';
 
 import '../patient/language_provider.dart';
@@ -39,10 +37,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   void _initializeDashboard() async {
     try {
       // Fetch initial data in parallel
-      await Future.wait([
-        _fetchPatients(),
-        _fetchStats(),
-      ]);
+      await Future.wait([_fetchPatients(), _fetchStats()]);
     } catch (e) {
       debugPrint("Initialization failed: $e");
       if (mounted) {
@@ -60,17 +55,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     if (!mounted) return;
     await _apiService.init();
     try {
-      final fetchedPatients =
-          await _apiService.getPatientsByStatus('under treatment');
+      final fetchedPatients = await _apiService.getPatientsByStatus(
+        'under treatment',
+      );
       setState(() {
         // The list now only contains patients under treatment
         _allPatients = fetchedPatients;
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load patients: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load patients: $e')));
       }
       debugPrint("Failed to fetch patients: $e");
     } finally {
@@ -116,10 +112,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         automaticallyImplyLeading: false, // Remove back button
         actions: [
           IconButton(
+            onPressed: () =>
+                Navigator.of(context).pushNamed('/appointments/doctor'),
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Appointments',
+          ),
+          IconButton(
             onPressed: () {
               _apiService.logout();
               Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/landing', (Route<dynamic> route) => false);
+                '/landing',
+                (Route<dynamic> route) => false,
+              );
             },
             icon: const Icon(Icons.logout),
           ),
@@ -137,7 +141,8 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 return SearchBar(
                   controller: controller,
                   padding: const WidgetStatePropertyAll<EdgeInsets>(
-                      EdgeInsets.symmetric(horizontal: 16.0)),
+                    EdgeInsets.symmetric(horizontal: 16.0),
+                  ),
                   onTap: () => controller.openView(),
                   onChanged: (_) => controller.openView(),
                   leading: const Icon(Icons.search),
@@ -162,10 +167,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     onTap: () {
                       controller.closeView(item.name);
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  PatientDetailScreen(patient: item)));
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PatientDetailScreen(patient: item),
+                        ),
+                      );
                     },
                   );
                 });
@@ -178,35 +184,43 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                    child: StatCard(
-                        title: "Total Patients",
-                        value: totalPatients.toString(),
-                        icon: Icons.groups_outlined,
-                        gradient: true)),
+                  child: StatCard(
+                    title: "Total Patients",
+                    value: totalPatients.toString(),
+                    icon: Icons.groups_outlined,
+                    gradient: true,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                    child: StatCard(
-                        title: "Currently Treating",
-                        value: currentlyTreating.toString(),
-                        icon: Icons.monitor_heart_outlined,
-                        gradient: true)),
+                  child: StatCard(
+                    title: "Currently Treating",
+                    value: currentlyTreating.toString(),
+                    icon: Icons.monitor_heart_outlined,
+                    gradient: true,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
 
             // Patient list
-            Text(langProvider.t('patientsUnderTreatment'),
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              langProvider.t('patientsUnderTreatment'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 10),
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _allPatients.isEmpty
                       ? Center(
-                          child: Text(_searchController.text.isEmpty
-                              ? "No patients are currently under treatment."
-                              : "No patients match your search"))
+                          child: Text(
+                            _searchController.text.isEmpty
+                                ? "No patients are currently under treatment."
+                                : "No patients match your search",
+                          ),
+                        )
                       : ListView.builder(
                           itemCount: _allPatients.length,
                           itemBuilder: (context, index) {
@@ -214,9 +228,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 6),
                               shape: RoundedRectangleBorder(
-                                  side: BorderSide(
-                                      color: Colors.grey.shade200, width: 1),
-                                  borderRadius: BorderRadius.circular(12)),
+                                side: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: ListTile(
                                 leading: const CircleAvatar(
                                   child: Icon(Icons.person),
