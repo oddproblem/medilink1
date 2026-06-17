@@ -1,5 +1,3 @@
-<![CDATA[<div align="center">
-
 # 🏥 MediLink
 
 ### *Bridging the gap between patients and healthcare providers*
