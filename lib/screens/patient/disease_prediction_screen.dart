@@ -110,8 +110,9 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
           });
         }
       } else {
+        debugPrint('Skin disease prediction failed: ${response.statusCode} - ${response.body}');
         setState(() {
-          _error = '${lang.t('serverError', 'Server returned error status')}: ${response.statusCode}';
+          _error = '${lang.t('serverError', 'Server returned error status')}: ${response.statusCode}\nDetails: ${response.body}';
           _isLoading = false;
         });
       }
