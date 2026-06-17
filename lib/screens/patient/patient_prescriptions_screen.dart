@@ -13,10 +13,12 @@ class PatientPrescriptionsScreen extends StatefulWidget {
   });
 
   @override
-  State<PatientPrescriptionsScreen> createState() => _PatientPrescriptionsScreenState();
+  State<PatientPrescriptionsScreen> createState() =>
+      _PatientPrescriptionsScreenState();
 }
 
-class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen> {
+class _PatientPrescriptionsScreenState
+    extends State<PatientPrescriptionsScreen> {
   final ApiService _apiService = ApiService();
   List<Prescription> _prescriptions = [];
   bool _isLoading = true;
@@ -75,7 +77,8 @@ class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: AppTheme.warning),
+              const Icon(Icons.error_outline,
+                  size: 48, color: AppTheme.warning),
               const SizedBox(height: 16),
               Text(
                 'Failed to load prescriptions: $_errorMessage',
@@ -100,11 +103,15 @@ class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.medical_services_outlined, size: 64, color: AppTheme.textMuted),
+              Icon(Icons.medical_services_outlined,
+                  size: 64, color: AppTheme.textMuted),
               const SizedBox(height: 16),
               Text(
                 'No historical prescriptions found.',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 16, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -123,7 +130,8 @@ class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen>
   }
 
   Widget _buildPrescriptionCard(Prescription prescription) {
-    final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(prescription.date);
+    final formattedDate =
+        DateFormat('dd MMM yyyy, hh:mm a').format(prescription.date);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16.0),
@@ -140,7 +148,8 @@ class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.receipt_long, color: AppTheme.primary, size: 20),
+                    const Icon(Icons.receipt_long,
+                        color: AppTheme.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       formattedDate,
@@ -151,9 +160,11 @@ class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen>
                     ),
                   ],
                 ),
-                if (prescription.prescriptionUrl != null && prescription.prescriptionUrl!.isNotEmpty)
+                if (prescription.prescriptionUrl != null &&
+                    prescription.prescriptionUrl!.isNotEmpty)
                   IconButton(
-                    icon: const Icon(Icons.file_download, color: AppTheme.primary),
+                    icon: const Icon(Icons.file_download,
+                        color: AppTheme.primary),
                     onPressed: () {
                       // Handled attachment link / launch web view or file downloder
                     },
@@ -214,7 +225,8 @@ class _PatientPrescriptionsScreenState extends State<PatientPrescriptionsScreen>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0, vertical: 4.0),
                       decoration: BoxDecoration(
                         color: badgeColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8.0),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../app_theme.dart';
 import '../../core/models/Appointment.dart';
 import '../../core/models/Doctor.dart';
 import '../../core/network/ApiService.dart';
+import 'language_provider.dart';
 
 class PatientAppointmentsScreen extends StatefulWidget {
   const PatientAppointmentsScreen({super.key});
@@ -58,20 +60,24 @@ class _PatientAppointmentsScreenState extends State<PatientAppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Appointments')),
+      appBar: AppBar(
+        title: Text(lang.t('myAppointments', 'Appointments')),
+        centerTitle: true,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openBooking,
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Book appointment'),
+        label: Text(lang.t('bookNewAppointment', 'Book Appointment')),
       ),
-      body: RefreshIndicator(onRefresh: _loadAppointments, child: _buildBody()),
+      body: RefreshIndicator(onRefresh: _loadAppointments, child: _buildBody(lang)),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(LanguageProvider lang) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -91,7 +97,7 @@ class _PatientAppointmentsScreenState extends State<PatientAppointmentsScreen> {
           Center(
             child: OutlinedButton(
               onPressed: _loadAppointments,
-              child: const Text('Try again'),
+              child: Text(lang.t('retry', 'Try again')),
             ),
           ),
         ],
@@ -104,16 +110,18 @@ class _PatientAppointmentsScreenState extends State<PatientAppointmentsScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _section(
-          'Upcoming',
+          lang.t('upcomingAppointment', 'Upcoming'),
           appointments.openAppointments,
           emptyText:
-              'No upcoming appointments. Book a consultation when you need one.',
+              lang.t('No upcoming appointments.', 'No upcoming appointments. Book a consultation when you need one.'),
+          lang: lang,
         ),
         const SizedBox(height: 20),
         _section(
-          'Past visits',
+          lang.t('pastAppointment', 'Past visits'),
           appointments.pastAppointments,
-          emptyText: 'Completed and cancelled appointments will appear here.',
+          emptyText: lang.t('noPastAppointments', 'Completed and cancelled appointments will appear here.'),
+          lang: lang,
         ),
       ],
     );
@@ -123,6 +131,7 @@ class _PatientAppointmentsScreenState extends State<PatientAppointmentsScreen> {
     String title,
     List<Appointment> appointments, {
     required String emptyText,
+    required LanguageProvider lang,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +145,7 @@ class _PatientAppointmentsScreenState extends State<PatientAppointmentsScreen> {
           _EmptyCard(text: emptyText)
         else
           ...appointments.map(
-            (appointment) => _AppointmentCard(appointment: appointment),
+            (appointment) => _AppointmentCard(appointment: appointment, lang: lang),
           ),
       ],
     );
@@ -214,11 +223,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   }
 
   Future<void> _bookAppointment() async {
+    final lang = context.read<LanguageProvider>();
     final reason = _reasonController.text.trim();
     if (_selectedDoctor == null || _appointmentDate == null || reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choose a doctor, date, time, and add a short reason.'),
+        SnackBar(
+          content: Text(lang.t('pleaseChooseAppointmentTime', 'Choose a doctor, date, time, and add a short reason.')),
         ),
       );
       return;
@@ -245,24 +255,28 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Book appointment')),
+      appBar: AppBar(
+        title: Text(lang.t('bookNewAppointment', 'Book Appointment')),
+        centerTitle: true,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text(
-            'Plan a consultation',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          Text(
+            lang.t('scheduledAppointments', 'Plan a consultation'),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Pick a registered doctor and a convenient time. Your upcoming visit will appear on both dashboards.',
-            style: TextStyle(color: AppTheme.textMuted, height: 1.5),
+          Text(
+            lang.t('appointmentDateAndTime', 'Pick a registered doctor and a convenient time. Your upcoming visit will appear on both dashboards.'),
+            style: const TextStyle(color: AppTheme.textMuted, height: 1.5),
           ),
           const SizedBox(height: 24),
           DropdownButtonFormField<Doctor>(
             value: _selectedDoctor,
-            decoration: const InputDecoration(labelText: 'Doctor'),
+            decoration: InputDecoration(labelText: lang.t('selectDoctor', 'Doctor')),
             items: _doctors
                 .map(
                   (doctor) => DropdownMenuItem(
@@ -285,7 +299,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             icon: const Icon(Icons.calendar_month_outlined),
             label: Text(
               _appointmentDate == null
-                  ? 'Choose date and time'
+                  ? lang.t('selectDate', 'Choose date and time')
                   : DateFormat(
                       'EEE, d MMM y - h:mm a',
                     ).format(_appointmentDate!),
@@ -295,9 +309,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
           TextField(
             controller: _reasonController,
             maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Reason for visit',
-              hintText: 'Briefly describe what you would like to discuss',
+            decoration: InputDecoration(
+              labelText: lang.t('reasonForVisit', 'Reason for visit'),
+              hintText: lang.t('reasonForVisit', 'Briefly describe what you would like to discuss'),
               alignLabelWithHint: true,
             ),
           ),
@@ -311,7 +325,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.check_circle_outline),
-            label: Text(_isSubmitting ? 'Booking...' : 'Confirm appointment'),
+            label: Text(_isSubmitting ? lang.t('processing', 'Booking...') : lang.t('confirmBooking', 'Confirm appointment')),
           ),
         ],
       ),
@@ -321,12 +335,15 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 
 class _AppointmentCard extends StatelessWidget {
   final Appointment appointment;
+  final LanguageProvider lang;
 
-  const _AppointmentCard({required this.appointment});
+  const _AppointmentCard({required this.appointment, required this.lang});
 
   @override
   Widget build(BuildContext context) {
     final isScheduled = appointment.status == 'scheduled';
+    final localizedStatus = lang.t(appointment.status, appointment.status);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -349,7 +366,7 @@ class _AppointmentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    appointment.doctorName ?? 'Doctor consultation',
+                    appointment.doctorName ?? lang.t('generalPhysician', 'Doctor consultation'),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
@@ -366,7 +383,7 @@ class _AppointmentCard extends StatelessWidget {
                 ],
               ),
             ),
-            _StatusChip(status: appointment.status),
+            _StatusChip(status: appointment.status, label: localizedStatus),
           ],
         ),
       ),
@@ -376,8 +393,9 @@ class _AppointmentCard extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final String status;
+  final String label;
 
-  const _StatusChip({required this.status});
+  const _StatusChip({required this.status, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +411,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status,
+        label,
         style: TextStyle(
           color: color,
           fontSize: 11,

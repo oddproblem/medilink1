@@ -65,7 +65,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         _isRegeneratingSummary = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI Health Summary regenerated successfully!')),
+        const SnackBar(
+            content: Text('AI Health Summary regenerated successfully!')),
       );
     } catch (e) {
       setState(() {
@@ -189,13 +190,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     final remarksCtrl = TextEditingController();
     final hospitalCtrl = TextEditingController();
     final addressSearchCtrl = TextEditingController();
-    
+
     String status = 'ongoing';
     DateTime selectedDate = DateTime.now();
-    
+
     String? selectedAddress;
     List<double>? selectedCoordinates;
-    
+
     List<dynamic> suggestions = [];
     bool isSearchingLocation = false;
     String locationStatus = '';
@@ -205,30 +206,32 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            
             Future<void> searchLocation() async {
               final query = addressSearchCtrl.text.trim();
               if (query.isEmpty) return;
-              
+
               setDialogState(() {
                 isSearchingLocation = true;
                 locationStatus = 'Searching addresses...';
                 suggestions = [];
               });
-              
+
               try {
                 final encodedQuery = Uri.encodeComponent(query);
-                final url = Uri.parse('https://nominatim.openstreetmap.org/search?format=json&q=$encodedQuery');
+                final url = Uri.parse(
+                    'https://nominatim.openstreetmap.org/search?format=json&q=$encodedQuery');
                 final response = await http.get(url, headers: {
-                  'User-Agent': 'SwiftMediLinkMobileApp/1.0.2 (medilink-project-support@gmail.com)'
+                  'User-Agent':
+                      'SwiftMediLinkMobileApp/1.0.2 (medilink-project-support@gmail.com)'
                 });
-                
+
                 if (response.statusCode == 200) {
                   final List<dynamic> data = jsonDecode(response.body);
                   setDialogState(() {
                     suggestions = data;
                     isSearchingLocation = false;
-                    locationStatus = data.isEmpty ? 'No address results found.' : '';
+                    locationStatus =
+                        data.isEmpty ? 'No address results found.' : '';
                   });
                 } else {
                   setDialogState(() {
@@ -263,15 +266,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                       value: status,
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
-                        DropdownMenuItem(value: 'ongoing', child: Text('Ongoing')),
-                        DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+                        DropdownMenuItem(
+                            value: 'ongoing', child: Text('Ongoing')),
+                        DropdownMenuItem(
+                            value: 'resolved', child: Text('Resolved')),
                       ],
                       onChanged: (val) {
                         if (val != null) status = val;
                       },
                     ),
                     const SizedBox(height: 12),
-                    
                     Row(
                       children: [
                         Expanded(
@@ -297,7 +301,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-
                     TextField(
                       controller: hospitalCtrl,
                       decoration: const InputDecoration(
@@ -306,7 +309,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
                     TextField(
                       controller: remarksCtrl,
                       decoration: const InputDecoration(
@@ -315,15 +317,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
                     const Divider(),
                     const SizedBox(height: 8),
                     const Text(
                       'Geospatial Location (Required for Hotspots) *',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primary),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppTheme.primary),
                     ),
                     const SizedBox(height: 8),
-                    
                     Row(
                       children: [
                         Expanded(
@@ -338,24 +341,28 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         const SizedBox(width: 8),
                         IconButton(
                           icon: isSearchingLocation
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.search),
-                          onPressed: isSearchingLocation ? null : searchLocation,
+                          onPressed:
+                              isSearchingLocation ? null : searchLocation,
                           style: IconButton.styleFrom(
                             backgroundColor: AppTheme.primary.withOpacity(0.1),
                           ),
                         ),
                       ],
                     ),
-                    
                     if (locationStatus.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
                         locationStatus,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.warning),
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.warning),
                       ),
                     ],
-
                     if (suggestions.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Container(
@@ -370,7 +377,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                           itemCount: suggestions.length,
                           itemBuilder: (context, idx) {
                             final item = suggestions[idx];
-                            final displayName = item['display_name'] ?? 'Unknown location';
+                            final displayName =
+                                item['display_name'] ?? 'Unknown location';
                             return ListTile(
                               title: Text(
                                 displayName,
@@ -387,7 +395,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                                   selectedCoordinates = [lon, lat];
                                   addressSearchCtrl.text = displayName;
                                   suggestions = [];
-                                  locationStatus = 'Selected: $displayName\nCoords: [$lon, $lat]';
+                                  locationStatus =
+                                      'Selected: $displayName\nCoords: [$lon, $lat]';
                                 });
                               },
                             );
@@ -395,7 +404,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         ),
                       ),
                     ],
-
                     if (selectedCoordinates != null) ...[
                       const SizedBox(height: 8),
                       Container(
@@ -406,12 +414,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.location_on, color: AppTheme.success, size: 16),
+                            Icon(Icons.location_on,
+                                color: AppTheme.success, size: 16),
                             SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 'Location verified successfully.',
-                                style: TextStyle(color: AppTheme.success, fontSize: 12, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                    color: AppTheme.success,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -431,26 +443,30 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                     final illness = illnessNameCtrl.text.trim();
                     if (illness.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Illness Name is required')),
+                        const SnackBar(
+                            content: Text('Illness Name is required')),
                       );
                       return;
                     }
-                    if (selectedCoordinates == null || selectedAddress == null) {
+                    if (selectedCoordinates == null ||
+                        selectedAddress == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('You must search and select a verified address from the location API')),
+                        const SnackBar(
+                            content: Text(
+                                'You must search and select a verified address from the location API')),
                       );
                       return;
                     }
 
                     Navigator.of(context).pop();
-                    
+
                     try {
                       setState(() {
                         isLoading = true;
                       });
 
                       final doctorId = _apiService.currentUser?.id ?? '';
-                      
+
                       await _apiService.createDiseaseHistory({
                         'patientId': widget.patient.id,
                         'illnessName': illness,
@@ -467,7 +483,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                       });
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Disease History entry created successfully.')),
+                        const SnackBar(
+                            content: Text(
+                                'Disease History entry created successfully.')),
                       );
 
                       await _fetchPatientData();
@@ -476,7 +494,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         isLoading = false;
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to add disease history: $e')),
+                        SnackBar(
+                            content: Text('Failed to add disease history: $e')),
                       );
                     }
                   },
@@ -493,14 +512,11 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _apiService
-        .init()
-        .then((_) {
-          _fetchPatientData();
-        })
-        .catchError((e) {
-          debugPrint("ApiService init failed: $e");
-        });
+    _apiService.init().then((_) {
+      _fetchPatientData();
+    }).catchError((e) {
+      debugPrint("ApiService init failed: $e");
+    });
   }
 
   @override
@@ -608,8 +624,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
     }
   }
 
-
-
   Future<void> _updateMedicineStatus(
     String prescriptionId,
     String medicineId,
@@ -657,9 +671,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         // This makes the function robust against backend inconsistencies.
         if (response is Map<String, dynamic>) {
           // The response might be nested under a 'data' key.
-          final data = response.containsKey('data')
-              ? response['data']
-              : response;
+          final data =
+              response.containsKey('data') ? response['data'] : response;
           // The AI's text could be under 'summary' or 'answer'.
           summaryText =
               (data['response'] ?? data['summary'] ?? data['answer'] ?? '')
@@ -702,17 +715,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
   Widget _buildChatBubble(_ChatMessage message) {
     return Align(
-      alignment: message.isFromUser
-          ? Alignment.centerRight
-          : Alignment.centerLeft,
+      alignment:
+          message.isFromUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         decoration: BoxDecoration(
           color: message.isFromUser
-              ? Theme.of(context)
-                    .colorScheme
-                    .primary // User message bubble
+              ? Theme.of(context).colorScheme.primary // User message bubble
               : Theme.of(context).colorScheme.surface, // AI message bubble
           borderRadius: BorderRadius.circular(16),
         ),
@@ -720,8 +730,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
           message.text,
           style: TextStyle(
             color: message.isFromUser
-                ? Colors
-                      .white // User message text
+                ? Colors.white // User message text
                 : Theme.of(context).colorScheme.onSurface,
           ), // AI message text
         ),
@@ -835,9 +844,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                             title: Text(m.name),
                             subtitle: Text(
                               "Status: ${m.status} • Prescribed: ${DateFormat.yMd().format(p.date)}" +
-                              ((m.dosage != null && m.dosage!.isNotEmpty) || (m.frequency != null && m.frequency!.isNotEmpty) || (m.duration != null && m.duration!.isNotEmpty)
-                                  ? "\nDosage: ${m.dosage ?? 'N/A'} • Freq: ${m.frequency ?? 'N/A'} • Duration: ${m.duration ?? 'N/A'}"
-                                  : ""),
+                                  ((m.dosage != null && m.dosage!.isNotEmpty) ||
+                                          (m.frequency != null &&
+                                              m.frequency!.isNotEmpty) ||
+                                          (m.duration != null &&
+                                              m.duration!.isNotEmpty)
+                                      ? "\nDosage: ${m.dosage ?? 'N/A'} • Freq: ${m.frequency ?? 'N/A'} • Duration: ${m.duration ?? 'N/A'}"
+                                      : ""),
                             ),
                             trailing: PopupMenuButton<String>(
                               onSelected: (String newStatus) {
@@ -849,17 +862,17 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                               },
                               itemBuilder: (BuildContext context) =>
                                   <PopupMenuEntry<String>>[
-                                    PopupMenuItem<String>(
-                                      value: 'current',
-                                      child: Text(
-                                        langProvider.t('markAsCurrent'),
-                                      ),
-                                    ),
-                                    PopupMenuItem<String>(
-                                      value: 'past',
-                                      child: Text(langProvider.t('markAsPast')),
-                                    ),
-                                  ],
+                                PopupMenuItem<String>(
+                                  value: 'current',
+                                  child: Text(
+                                    langProvider.t('markAsCurrent'),
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'past',
+                                  child: Text(langProvider.t('markAsPast')),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -871,7 +884,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                     icon: const Icon(Icons.add_circle_outline),
                     label: const Text('Add Detailed Medicine'),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                     ),
                   ),
                 ],
@@ -882,7 +896,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
             SectionCard(
               title: langProvider.t('diseaseHistory'),
               trailing: IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: AppTheme.primary),
+                icon: const Icon(Icons.add_circle_outline,
+                    color: AppTheme.primary),
                 onPressed: _showAddDiseaseDialog,
                 tooltip: 'Add Disease History',
               ),
@@ -895,26 +910,29 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         ),
                       ]
                     : history
-                          .map(
-                            (h) => Card(
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.history_edu_outlined,
-                                  color: AppTheme.primary,
-                                ),
-                                title: Text(
-                                  h.illnessName.isNotEmpty
-                                      ? h.illnessName
-                                      : langProvider.t('noIllnessName'),
-                                ),
-                                subtitle: Text(
-                                  'Status: ${h.status}' + (h.remarks != null && h.remarks!.isNotEmpty ? ' | Remarks: ${h.remarks}' : ''),
-                                  style: const TextStyle(fontSize: 12),
-                                ),
+                        .map(
+                          (h) => Card(
+                            child: ListTile(
+                              leading: const Icon(
+                                Icons.history_edu_outlined,
+                                color: AppTheme.primary,
+                              ),
+                              title: Text(
+                                h.illnessName.isNotEmpty
+                                    ? h.illnessName
+                                    : langProvider.t('noIllnessName'),
+                              ),
+                              subtitle: Text(
+                                'Status: ${h.status}' +
+                                    (h.remarks != null && h.remarks!.isNotEmpty
+                                        ? ' | Remarks: ${h.remarks}'
+                                        : ''),
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
-                          )
-                          .toList(),
+                          ),
+                        )
+                        .toList(),
               ),
             ),
             const SizedBox(height: 20),
@@ -931,24 +949,24 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                         ),
                       ]
                     : dailyReadings
-                          .map(
-                            (r) => Card(
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.monitor_heart_outlined,
-                                  color: AppTheme.primary,
-                                ),
-                                // Use the correct fields from the updated DailyReading model
-                                title: Text(
-                                  "BP: ${r.bloodPressure.systolic}/${r.bloodPressure.diastolic}, Pulse: ${r.pulseRate}",
-                                ),
-                                subtitle: Text(
-                                  "Date: ${DateFormat.yMd().add_jm().format(r.date)}",
-                                ),
+                        .map(
+                          (r) => Card(
+                            child: ListTile(
+                              leading: const Icon(
+                                Icons.monitor_heart_outlined,
+                                color: AppTheme.primary,
+                              ),
+                              // Use the correct fields from the updated DailyReading model
+                              title: Text(
+                                "BP: ${r.bloodPressure.systolic}/${r.bloodPressure.diastolic}, Pulse: ${r.pulseRate}",
+                              ),
+                              subtitle: Text(
+                                "Date: ${DateFormat.yMd().add_jm().format(r.date)}",
                               ),
                             ),
-                          )
-                          .toList(),
+                          ),
+                        )
+                        .toList(),
               ),
             ),
             const SizedBox(height: 20),

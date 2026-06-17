@@ -5,7 +5,7 @@ const { parseStringPromise } = require('xml2js');
 const SANDBOX_BASE_URL = "https://api.sandbox.co.in";
 const API_KEY = process.env.API_KEY;
 const API_SECRET = process.env.API_SECRET;
-const REDIRECT_URL = "https://webtech-zeta-ebon.vercel.app/auth"; // Updated for the React frontend
+const REDIRECT_URL = "https://swiftmedilink.vercel.app/auth"; // Updated for the React frontend
 
 /**
  * Initiates the DigiLocker session via Sandbox API.

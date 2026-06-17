@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../app_theme.dart';
 import '../../core/network/ApiService.dart';
 import '../../widgets/section_card.dart';
+import 'language_provider.dart';
 
 class EmergencyDashboardScreen extends StatefulWidget {
   const EmergencyDashboardScreen({super.key});
 
   @override
-  State<EmergencyDashboardScreen> createState() => _EmergencyDashboardScreenState();
+  State<EmergencyDashboardScreen> createState() =>
+      _EmergencyDashboardScreenState();
 }
 
 class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
   final ApiService _apiService = ApiService();
-  
+
   bool _isLoadingContacts = true;
   bool _isLoadingDoctors = true;
   bool _isLoadingHospitals = true;
@@ -52,7 +55,7 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
     try {
       final currentUser = _apiService.currentUser;
       if (currentUser == null) return;
-      
+
       final results = await _apiService.getEmergencyContacts(currentUser.id);
       if (mounted) {
         setState(() {
@@ -97,29 +100,36 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
   }
 
   Future<void> _triggerAlert() async {
+    final langProvider = context.read<LanguageProvider>();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_rounded, color: Colors.red, size: 28),
-            SizedBox(width: 8),
-            Text('Confirm Emergency'),
+            const Icon(Icons.warning_rounded, color: Colors.red, size: 28),
+            const SizedBox(width: 8),
+            Text(langProvider.t('confirmEmergency', 'Confirm Emergency')),
           ],
         ),
-        content: const Text(
-          'Are you sure you want to trigger a medical emergency alert?\n\nThis will instantly dispatch alerts to your emergency contacts, nearby physicians, and hospital authorities.',
-          style: TextStyle(height: 1.4),
+        content: Text(
+          langProvider.t(
+            'sosConfirmDesc',
+            'Are you sure you want to trigger a medical emergency alert?\n\nThis will instantly dispatch alerts to your emergency contacts, nearby physicians, and hospital authorities.',
+          ),
+          style: const TextStyle(height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(langProvider.t('cancel', 'Cancel')),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Dispatch Alert', style: TextStyle(color: Colors.white)),
+            child: Text(
+              langProvider.t('sosEmergency', 'SOS Emergency'),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -134,13 +144,14 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
       if (currentUser == null) throw Exception('User not logged in');
 
       final response = await _apiService.triggerEmergencyAlert(currentUser.id);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.red.shade800,
             content: Text(
-              response['message'] ?? 'Emergency Alerts Dispatched Successfully!',
+              response['message'] ??
+                  langProvider.t('emergencyAlertSuccess', 'Emergency Alerts Dispatched Successfully!'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -149,7 +160,7 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to trigger alert: $e')),
+          SnackBar(content: Text('${langProvider.t('failedToTriggerAlert', 'Failed to trigger alert')}: $e')),
         );
       }
     } finally {
@@ -158,13 +169,14 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
   }
 
   Future<void> _addContact() async {
+    final langProvider = context.read<LanguageProvider>();
     final name = _nameCtrl.text.trim();
     final relation = _relationCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
 
     if (name.isEmpty || relation.isEmpty || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill out all contact fields.')),
+        SnackBar(content: Text(langProvider.t('fillAllFields', 'Please fill out all fields.'))),
       );
       return;
     }
@@ -181,7 +193,7 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
       };
 
       await _apiService.createEmergencyContact(contactData);
-      
+
       _nameCtrl.clear();
       _relationCtrl.clear();
       _phoneCtrl.clear();
@@ -189,33 +201,43 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
       if (mounted) {
         Navigator.of(context).pop(); // Close sheet/dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Emergency Contact Added Successfully.')),
+          SnackBar(
+            content: Text(langProvider.t('contactAddedSuccess', 'Emergency Contact Added Successfully.')),
+          ),
         );
       }
-      
+
       _fetchContacts();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add contact: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add contact: $e')),
+        );
+      }
     }
   }
 
   Future<void> _deleteContact(String contactId) async {
+    final langProvider = context.read<LanguageProvider>();
     try {
       await _apiService.deleteEmergencyContact(contactId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Emergency Contact Removed.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(langProvider.t('contactRemoved', 'Emergency Contact Removed.'))),
+        );
+      }
       _fetchContacts();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete contact: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete contact: $e')),
+        );
+      }
     }
   }
 
   void _showAddContactDialog() {
+    final langProvider = context.read<LanguageProvider>();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -225,35 +247,42 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
       ),
       builder: (context) {
         return Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+          padding: EdgeInsets.fromLTRB(
+              20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Add Emergency Contact',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                langProvider.t('addContact', 'Add Emergency Contact'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: langProvider.t('name', 'Name')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _relationCtrl,
-                decoration: const InputDecoration(labelText: 'Relationship (e.g. Spouse, Friend)'),
+                decoration: InputDecoration(
+                  labelText: langProvider.t('relationship', 'Relationship (e.g. Spouse, Friend)'),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone Number'),
+                decoration: InputDecoration(labelText: langProvider.t('phoneNumber', 'Phone Number')),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _addContact,
-                child: const Text('Save Contact'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text(
+                  langProvider.t('save', 'Save'),
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -264,10 +293,12 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final langProvider = context.watch<LanguageProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emergency Assistance'),
+        title: Text(langProvider.t('Emergency', 'Emergency Assistance')),
         backgroundColor: Colors.red.shade800,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -287,16 +318,26 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                       padding: const EdgeInsets.all(20.0),
                       child: Column(
                         children: [
-                          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 54),
+                          const Icon(Icons.error_outline_rounded,
+                              color: Colors.red, size: 54),
                           const SizedBox(height: 12),
-                          const Text(
-                            'SOS Emergency Trigger',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
+                          Text(
+                            langProvider.t('Emergency', 'SOS Emergency Trigger'),
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Click the button below in case of medical crisis to dispatch location coordinates and notify medical emergency responders.',
-                            style: TextStyle(color: Colors.red.shade900, fontSize: 13, height: 1.4),
+                            langProvider.t(
+                              'sosEmergencyDesc',
+                              'Click the button below in case of medical crisis to dispatch location coordinates and notify medical emergency responders.',
+                            ),
+                            style: TextStyle(
+                                color: Colors.red.shade900,
+                                fontSize: 13,
+                                height: 1.4),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 20),
@@ -317,23 +358,28 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
-                                  border: Border.all(color: Colors.white, width: 4),
+                                  border:
+                                      Border.all(color: Colors.white, width: 4),
                                 ),
                                 alignment: Alignment.center,
                                 child: _isDispatchingAlert
                                     ? const SizedBox(
                                         width: 32,
                                         height: 32,
-                                        child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                            color: Colors.white),
                                       )
-                                    : const Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.health_and_safety, color: Colors.white, size: 28),
-                                          SizedBox(height: 4),
+                                          const Icon(Icons.health_and_safety,
+                                              color: Colors.white, size: 28),
+                                          const SizedBox(height: 4),
                                           Text(
-                                            'SOS',
-                                            style: TextStyle(
+                                            langProvider.t('sosEmergency', 'SOS'),
+                                            style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 20,
                                               fontWeight: FontWeight.w900,
@@ -356,18 +402,21 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
 
             // Emergency Contacts Section
             SectionCard(
-              title: 'Emergency Contacts',
+              title: langProvider.t('patientsContacts', 'Emergency Contacts'),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _isLoadingContacts
                       ? const Center(child: CircularProgressIndicator())
                       : _contacts.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12.0),
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12.0),
                               child: Text(
-                                'No emergency contacts added yet. Add close friends or family members to receive notifications.',
-                                style: TextStyle(color: AppTheme.textMuted),
+                                langProvider.t(
+                                  'noContactsFound',
+                                  'No emergency contacts added yet. Add close friends or family members to receive notifications.',
+                                ),
+                                style: const TextStyle(color: AppTheme.textMuted),
                               ),
                             )
                           : ListView.separated(
@@ -380,19 +429,24 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                                 return ListTile(
                                   leading: const CircleAvatar(
                                     backgroundColor: Colors.red,
-                                    child: Icon(Icons.person, color: Colors.white),
+                                    child:
+                                        Icon(Icons.person, color: Colors.white),
                                   ),
                                   title: Text(
                                     contact['name'] ?? 'Unknown Name',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   subtitle: Text(
                                     '${contact['relationship']} • ${contact['phone']}',
-                                    style: const TextStyle(color: AppTheme.textMuted),
+                                    style: const TextStyle(
+                                        color: AppTheme.textMuted),
                                   ),
                                   trailing: IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    onPressed: () => _deleteContact(contact['_id']),
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.red),
+                                    onPressed: () =>
+                                        _deleteContact(contact['_id']),
                                   ),
                                 );
                               },
@@ -400,9 +454,11 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: _showAddContactDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Contact'),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red.shade800),
+                    icon: const Icon(Icons.add, color: Colors.red),
+                    label: Text(langProvider.t('addContact', 'Add Contact')),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade900,
+                        side: BorderSide(color: Colors.red.shade200)),
                   ),
                 ],
               ),
@@ -411,13 +467,15 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
 
             // Emergency Doctors List
             SectionCard(
-              title: 'Emergency Doctors On Duty',
+              title: langProvider.t('systemDoctors', 'Emergency Doctors On Duty'),
               child: _isLoadingDoctors
                   ? const Center(child: CircularProgressIndicator())
                   : _doctors.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text('No emergency doctors registered on duty currently.', style: TextStyle(color: AppTheme.textMuted)),
+                      ? Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                              langProvider.t('noDoctorsFound', 'No emergency doctors registered on duty currently.'),
+                              style: const TextStyle(color: AppTheme.textMuted)),
                         )
                       : ListView.separated(
                           shrinkWrap: true,
@@ -429,12 +487,17 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                             return ListTile(
                               leading: const CircleAvatar(
                                 backgroundColor: AppTheme.primary,
-                                child: Icon(Icons.local_hospital, color: Colors.white),
+                                child: Icon(Icons.local_hospital,
+                                    color: Colors.white),
                               ),
-                              title: Text(doc['name'] ?? 'Doctor', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('${doc['specialty']} • ${doc['phone']}'),
+                              title: Text(doc['name'] ?? 'Doctor',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              subtitle:
+                                  Text('${doc['specialty']} • ${doc['phone']}'),
                               trailing: doc['hospitalAffiliation'] != null
-                                  ? Chip(label: Text(doc['hospitalAffiliation']))
+                                  ? Chip(
+                                      label: Text(doc['hospitalAffiliation']))
                                   : null,
                             );
                           },
@@ -444,13 +507,15 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
 
             // Emergency Hospitals List
             SectionCard(
-              title: 'Emergency Trauma Centers',
+              title: langProvider.t('systemHospitals', 'Emergency Trauma Centers'),
               child: _isLoadingHospitals
                   ? const Center(child: CircularProgressIndicator())
                   : _hospitals.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text('No emergency hospital centers registered.', style: TextStyle(color: AppTheme.textMuted)),
+                      ? Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                              langProvider.t('noHospitalsFound', 'No emergency hospital centers registered.'),
+                              style: const TextStyle(color: AppTheme.textMuted)),
                         )
                       : ListView.separated(
                           shrinkWrap: true,
@@ -461,8 +526,11 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                             final hosp = _hospitals[index];
                             final loc = hosp['location'];
                             String coordsStr = '';
-                            if (loc != null && loc['coordinates'] is List && (loc['coordinates'] as List).length >= 2) {
-                              coordsStr = 'Coords: [${loc['coordinates'][0]}, ${loc['coordinates'][1]}]';
+                            if (loc != null &&
+                                loc['coordinates'] is List &&
+                                (loc['coordinates'] as List).length >= 2) {
+                              coordsStr =
+                                  'Coords: [${loc['coordinates'][0]}, ${loc['coordinates'][1]}]';
                             }
                             return ListTile(
                               leading: Container(
@@ -471,16 +539,23 @@ class _EmergencyDashboardScreenState extends State<EmergencyDashboardScreen> {
                                   color: Colors.red.shade50,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.domain, color: Colors.red),
+                                child:
+                                    const Icon(Icons.domain, color: Colors.red),
                               ),
-                              title: Text(hosp['name'] ?? 'Hospital', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              title: Text(hosp['name'] ?? 'Hospital',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(hosp['address'] ?? 'No address registered'),
-                                  Text('Phone: ${hosp['phone']}'),
+                                  Text(hosp['address'] ??
+                                      'No address registered'),
+                                  Text('${langProvider.t('phoneNumber', 'Phone')}: ${hosp['phone']}'),
                                   if (coordsStr.isNotEmpty)
-                                    Text(coordsStr, style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+                                    Text(coordsStr,
+                                        style: const TextStyle(
+                                            fontFamily: 'monospace',
+                                            fontSize: 11)),
                                 ],
                               ),
                               isThreeLine: true,

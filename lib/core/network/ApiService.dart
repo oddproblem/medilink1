@@ -78,6 +78,20 @@ class ApiService {
     _initialized = true;
   }
 
+  Future<void> saveOAuthSession(String token, String patientId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalizedToken = _normalizeToken(token)!;
+    await prefs.setString('token', normalizedToken);
+    _token = normalizedToken;
+    _initialized = true;
+
+    // Fetch patient details to get the name
+    final patient = await getPatientById(patientId);
+
+    // Save full session
+    await _saveSession(token, User(id: patientId, username: patient.name), 'patient');
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([
@@ -409,7 +423,21 @@ class ApiService {
   Future<dynamic> queryHealthData(Map<String, dynamic> data) =>
       _request('POST', '/summary/query', body: data);
 
-
+  Future<List<String>> translateTexts(List<String> texts, String target) async {
+    final response = _asMap(
+      await _request(
+        'POST',
+        '/translate',
+        body: {'q': texts, 'target': target},
+      ),
+    );
+    final translations = response['translations'];
+    if (translations is List) {
+      return translations.map((item) => item?.toString() ?? '').toList();
+    }
+    if (translations is String) return [translations];
+    return texts;
+  }
 
   Future<List<Note>> getNotesByPatient(String patientId) async {
     final response = await _request('GET', '/notes/patient/$patientId');
@@ -476,7 +504,8 @@ class ApiService {
   }
 
   // === OCR PRESCRIPTION ENDPOINTS ===
-  Future<Map<String, dynamic>> processOcrPrescription(String patientId, String fileUrl) async {
+  Future<Map<String, dynamic>> processOcrPrescription(
+      String patientId, String fileUrl) async {
     return _asMap(
       await _request(
         'POST',
@@ -486,11 +515,12 @@ class ApiService {
     );
   }
 
-  Future<Map<String, dynamic>> uploadOcrPrescription(String patientId, String filePath) async {
+  Future<Map<String, dynamic>> uploadOcrPrescription(
+      String patientId, String filePath) async {
     await init();
     final uri = Uri.parse('$_baseUrl/ocr-prescriptions');
     final request = http.MultipartRequest('POST', uri);
-    
+
     // Add headers
     request.headers.addAll({
       if (_token != null) 'Authorization': 'Bearer $_token',
@@ -513,7 +543,25 @@ class ApiService {
   }
 
   Future<List<dynamic>> getOcrPrescriptionsForPatient(String patientId) async {
-    final response = await _request('GET', '/ocr-prescriptions/patient/$patientId');
+    final response =
+        await _request('GET', '/ocr-prescriptions/patient/$patientId');
+    return _asList(response);
+  }
+
+  Future<int> getOcrPrescriptionCount(String patientId) async {
+    final response = _asMap(
+      await _request('GET', '/ocr-prescriptions/patient/$patientId/count'),
+    );
+    return response['count'] is int
+        ? response['count'] as int
+        : int.tryParse('${response['count']}') ?? 0;
+  }
+
+  Future<List<dynamic>> getOcrPrescriptionMedicines(String patientId) async {
+    final response = await _request(
+      'GET',
+      '/ocr-prescriptions/patient/$patientId/medicines',
+    );
     return _asList(response);
   }
 
@@ -527,16 +575,19 @@ class ApiService {
   // === EMERGENCY DASHBOARD ENDPOINTS ===
   Future<Map<String, dynamic>> triggerEmergencyAlert(String patientId) async {
     return _asMap(
-      await _request('POST', '/emergency/alert', body: {'patientId': patientId}),
+      await _request('POST', '/emergency/alert',
+          body: {'patientId': patientId}),
     );
   }
 
   Future<List<dynamic>> getEmergencyContacts(String patientId) async {
-    final response = await _request('GET', '/emergency-contacts/patient/$patientId');
+    final response =
+        await _request('GET', '/emergency-contacts/patient/$patientId');
     return _asList(response);
   }
 
-  Future<Map<String, dynamic>> createEmergencyContact(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createEmergencyContact(
+      Map<String, dynamic> data) async {
     return _asMap(await _request('POST', '/emergency-contacts', body: data));
   }
 
@@ -559,4 +610,3 @@ class ApiService {
     return _asMap(await _request('POST', '/report/generate', body: const {}));
   }
 }
-

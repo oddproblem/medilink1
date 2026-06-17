@@ -74,15 +74,15 @@ exports.searchPatients = async (req, res) => {
   try {
     const query = req.query.q || '';
     if (query.length < 2) {
-      return res.status(200).json({ success: true, data: [] }); // Don't search for very short strings
+      return res.status(200).json([]); // Don't search for very short strings
     }
     
     // Using regex for a case-insensitive "contains" search
     const patients = await Patient.find({ 
       fullName: { $regex: query, $options: 'i' } 
-    }).limit(10).lean(); // Limit to 10 results for performance
+    }).limit(10); // Limit to 10 results for performance
 
-    res.status(200).json({ success: true, data: patients });
+    res.status(200).json(patients);
   } catch (error) {
     console.error('Error searching patients:', error);
     res.status(500).json({ message: 'Server error during patient search.' });
@@ -96,7 +96,7 @@ exports.searchPatients = async (req, res) => {
  */
 exports.getPatientById = async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id).lean();
+    const patient = await Patient.findById(req.params.id);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found.' });
     }
@@ -116,7 +116,7 @@ exports.getPatientsByStatus = async (req, res) => {
     const status = req.query.status;
     const filter = status ? { status } : {}; // If no status, get all patients
     
-    const patients = await Patient.find(filter).sort({ updatedAt: -1 }).lean();
+    const patients = await Patient.find(filter).sort({ updatedAt: -1 });
     res.status(200).json(patients);
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });

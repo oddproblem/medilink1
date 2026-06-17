@@ -42,6 +42,6 @@ router.route('/:prescriptionId/medicines/:medicineId')
 
 // Route for updating a specific medicine's status
 router.route('/medicines/:prescriptionId/:medicineId/status')
-  .patch(updateMedicineStatus);
+  .put(updateMedicineStatus);
 
 module.exports = router;

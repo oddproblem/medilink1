@@ -4,9 +4,10 @@ const mongoose = require('mongoose');
 
 const patientSchema = new mongoose.Schema(
   {
-    aadhaarNumber: { type: String, required: true, unique: true },
+    aadhaarNumber: { type: String, unique: true, sparse: true },
     username: { type: String, required: true, unique: true }, // <-- ADDED USERNAME
-    password: { type: String, required: true },
+    password: { type: String },
+    googleId: { type: String, unique: true, sparse: true },
     fullName: { type: String, required: true },
     dateOfBirth: { type: Date }, // No longer strictly required on creation
     gender: { type: String },

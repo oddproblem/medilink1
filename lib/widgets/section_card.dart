@@ -41,7 +41,8 @@ class SectionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 16),
                 ),
               ),
               if (trailing != null) trailing!,

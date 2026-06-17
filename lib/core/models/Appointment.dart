@@ -34,8 +34,7 @@ class Appointment {
       doctorId: _relationId(doctor),
       doctorName: doctor is Map ? doctor['name']?.toString() : null,
       doctorCouncil: doctor is Map ? doctor['council']?.toString() : null,
-      appointmentDate:
-          DateTime.tryParse(
+      appointmentDate: DateTime.tryParse(
             (json['appointmentDate'] ?? json['date'] ?? '').toString(),
           ) ??
           DateTime.now(),

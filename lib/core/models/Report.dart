@@ -19,9 +19,9 @@ class Report {
 
   factory Report.fromJson(Map<String, dynamic> json) => Report(
         id: json["_id"]?.toString() ?? '',
-        content: json["content"]?.toString() ?? json["message"]?.toString() ?? '',
+        content:
+            json["content"]?.toString() ?? json["message"]?.toString() ?? '',
       );
 
   Map<String, dynamic> toJson() => {"id": id, "content": content};
 }
-

@@ -108,14 +108,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     final langProvider = context.watch<LanguageProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Doctor Dashboard"),
+        title: Text(langProvider.t('doctorDashboard', 'Doctor Dashboard')),
         automaticallyImplyLeading: false, // Remove back button
         actions: [
           IconButton(
             onPressed: () =>
                 Navigator.of(context).pushNamed('/appointments/doctor'),
             icon: const Icon(Icons.calendar_month_outlined),
-            tooltip: 'Appointments',
+            tooltip: langProvider.t('myAppointments', 'Appointments'),
           ),
           IconButton(
             onPressed: () {
@@ -146,7 +146,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   onTap: () => controller.openView(),
                   onChanged: (_) => controller.openView(),
                   leading: const Icon(Icons.search),
-                  hintText: "Search patients by name...",
+                  hintText: langProvider.t('searchPatientPlaceholder', 'Search patients by name...'),
                 );
               },
               suggestionsBuilder:
@@ -185,7 +185,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               children: [
                 Expanded(
                   child: StatCard(
-                    title: "Total Patients",
+                    title: langProvider.t('totalPatients', 'Total Patients'),
                     value: totalPatients.toString(),
                     icon: Icons.groups_outlined,
                     gradient: true,
@@ -194,7 +194,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: StatCard(
-                    title: "Currently Treating",
+                    title: langProvider.t('currentlyTreating', 'Currently Treating'),
                     value: currentlyTreating.toString(),
                     icon: Icons.monitor_heart_outlined,
                     gradient: true,
@@ -217,8 +217,8 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                       ? Center(
                           child: Text(
                             _searchController.text.isEmpty
-                                ? "No patients are currently under treatment."
-                                : "No patients match your search",
+                                ? langProvider.t('noPatientsFound', 'No patients are currently under treatment.')
+                                : langProvider.t('noPatientsFound', 'No patients match your search'),
                           ),
                         )
                       : ListView.builder(

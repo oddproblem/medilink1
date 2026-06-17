@@ -21,10 +21,12 @@ import 'screens/doctor/doctor_appointments_screen.dart';
 import 'screens/patient/patient_dashboard_screen.dart';
 import 'screens/patient/patient_appointments_screen.dart';
 import 'screens/patient/ocr_scan_screen.dart';
+import 'screens/patient/medication_summary_screen.dart';
 import 'screens/patient/disease_hotspots_screen.dart';
 import 'screens/patient/emergency_dashboard_screen.dart';
 import 'screens/patient/disease_prediction_screen.dart';
 import 'screens/patient/symptom_prediction_screen.dart';
+import 'screens/auth/auth_callback_screen.dart';
 
 void main() {
   // Create a single ApiService instance to be shared across the app.
@@ -62,6 +64,7 @@ class MediLinkApp extends StatelessWidget {
         '/': (_) => const WelcomeScreen(),
         // The original landing page is moved to '/landing'.
         '/landing': (_) => const LandingScreen(),
+        '/auth': (_) => const AuthCallbackScreen(),
         '/auth/doctor': (_) => const DoctorSignInScreen(),
         '/auth/patient': (_) => const PatientSignInScreen(),
         '/auth/doctor/sign-up': (_) => const DoctorSignUpScreen(),
@@ -71,6 +74,7 @@ class MediLinkApp extends StatelessWidget {
         '/appointments/doctor': (_) => const DoctorAppointmentsScreen(),
         '/appointments/patient': (_) => const PatientAppointmentsScreen(),
         '/ocr-scan': (_) => const OcrScanScreen(),
+        '/medication-summary': (_) => const MedicationSummaryScreen(),
         '/hotspots': (_) => const DiseaseHotspotsScreen(),
         '/emergency': (_) => const EmergencyDashboardScreen(),
         '/disease-prediction': (_) => const DiseasePredictionScreen(),

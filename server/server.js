@@ -11,11 +11,16 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
 const connectDB = require("./config/db");
 connectDB();
 
+const session = require("express-session");
+const passport = require("passport");
+require("./config/passport"); // Load passport strategy configuration
+
 // --- Continue requiring the rest of your routes ---
 const prescriptionRoutes = require("./routes/prescriptionRoutes");
 const historyRoutes = require("./routes/historyRoutes");
 const healthSummaryRoutes = require("./routes/healthSummaryRoutes");
 const noteRoutes = require("./routes/noteRoutes");
+const translationRoutes = require("./routes/translationRoutes");
 const authRoutes = require("./routes/authRoutes");
 const patientRoutes = require("./routes/patientRoutes");
 const doctorRoutes = require("./routes/doctorRoutes");
@@ -32,9 +37,18 @@ const appointmentRoutes = require('./routes/appointmentRoutes');
 const app = express();
 
 // ... (the rest of your server.js file is correct) ...
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(cors());
-app.use('/uploads', express.static(path.join(__dirname, 'tmp')));
+app.use("/uploads/ocr", express.static(path.join(__dirname, "tmp")));
+
+// Setup sessions and passport middlewares
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'swiftmedi-secret-key',
+  resave: false,
+  saveUninitialized: false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Mount routers
 app.use("/api/v1/auth", authRoutes);
@@ -49,15 +63,12 @@ app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/summary", healthSummaryRoutes);
 app.use('/api/v1/readings', dailyReadingRoutes);
 app.use("/api/v1/verify", verifyRoutes);
+app.use("/api/v1", translationRoutes);
 app.use("/api/v1/hotspots", hotspotRoutes);
 app.use("/api/v1/emergency-contacts", emergencyContactRoutes);
 app.use("/api/v1/emergency-doctors", emergencyDoctorRoutes);
 app.use("/api/v1/emergency-hospitals", emergencyHospitalRoutes);
 app.use("/api/v1/ocr-prescriptions", OcrPrescriptionRoutes);
-
-app.get('/api/v1/health', (req, res) => {
-  res.status(200).json({ ok: true, timestamp: new Date() });
-});
 
 const PORT = process.env.PORT || 5000;
 
@@ -70,7 +81,7 @@ app.get('/api/v1/config/maps', (req, res) => {
   res.status(200).json({ apiKey });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log(
     `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`
   );

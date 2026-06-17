@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../app_theme.dart';
 import '../../core/models/Appointment.dart';
 import '../../core/network/ApiService.dart';
+import '../patient/language_provider.dart';
 
 class DoctorAppointmentsScreen extends StatefulWidget {
   const DoctorAppointmentsScreen({super.key});
@@ -48,13 +50,14 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
   }
 
   Future<void> _updateStatus(Appointment appointment, String status) async {
+    final lang = context.read<LanguageProvider>();
     try {
       await _apiService.updateAppointmentStatus(appointment.id, status);
       await _loadAppointments();
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Appointment marked $status.')));
+      ).showSnackBar(SnackBar(content: Text('${lang.t('status', 'Status')} marked $status.')));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,13 +68,17 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Today and upcoming')),
-      body: RefreshIndicator(onRefresh: _loadAppointments, child: _buildBody()),
+      appBar: AppBar(
+        title: Text(lang.t('upcomingAppointmentsDoctor', 'Today and upcoming')),
+        centerTitle: true,
+      ),
+      body: RefreshIndicator(onRefresh: _loadAppointments, child: _buildBody(lang)),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(LanguageProvider lang) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return ListView(
@@ -89,7 +96,7 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
           Center(
             child: OutlinedButton(
               onPressed: _loadAppointments,
-              child: const Text('Try again'),
+              child: Text(lang.t('retry', 'Try again')),
             ),
           ),
         ],
@@ -99,15 +106,15 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
-        children: const [
-          SizedBox(height: 80),
-          Icon(
+        children: [
+          const SizedBox(height: 80),
+          const Icon(
             Icons.event_available_outlined,
             size: 56,
             color: AppTheme.primary,
           ),
-          SizedBox(height: 16),
-          Text('No scheduled appointments.', textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          Text(lang.t('noUpcomingAppointments', 'No scheduled appointments.'), textAlign: TextAlign.center),
         ],
       );
     }
@@ -134,7 +141,7 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            appointment.patientName ?? 'Patient consultation',
+                            appointment.patientName ?? lang.t('patient', 'Patient consultation'),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -161,12 +168,12 @@ class _DoctorAppointmentsScreenState extends State<DoctorAppointmentsScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _updateStatus(appointment, 'completed'),
                       icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Complete'),
+                      label: Text(lang.t('markAsCompleted', 'Complete')),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _updateStatus(appointment, 'cancelled'),
                       icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Cancel'),
+                      label: Text(lang.t('cancelAppointment', 'Cancel')),
                     ),
                   ],
                 ),

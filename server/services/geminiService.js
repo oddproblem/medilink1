@@ -8,7 +8,7 @@ const extractMedicinesFromText = async (text) => {
   console.log("Sending text to Gemini Flash for processing...");
 
   // ✅ CORRECTED: Switched to the gemini-2.5-flash model
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
   // This is the detailed prompt we designed
   const prompt = `

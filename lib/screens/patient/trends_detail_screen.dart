@@ -92,9 +92,12 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
   }
 
   Future<void> _showEditReadingDialog(DailyReading reading) async {
-    final systolicCtrl = TextEditingController(text: reading.bloodPressure.systolic.toString());
-    final diastolicCtrl = TextEditingController(text: reading.bloodPressure.diastolic.toString());
-    final weightCtrl = TextEditingController(text: reading.weightKg?.toString() ?? '');
+    final systolicCtrl =
+        TextEditingController(text: reading.bloodPressure.systolic.toString());
+    final diastolicCtrl =
+        TextEditingController(text: reading.bloodPressure.diastolic.toString());
+    final weightCtrl =
+        TextEditingController(text: reading.weightKg?.toString() ?? '');
     final pulseCtrl = TextEditingController(text: reading.pulseRate.toString());
 
     final confirm = await showDialog<bool>(
@@ -108,25 +111,29 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
               TextField(
                 controller: systolicCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Systolic Blood Pressure (mmHg) *'),
+                decoration: const InputDecoration(
+                    labelText: 'Systolic Blood Pressure (mmHg) *'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: diastolicCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Diastolic Blood Pressure (mmHg) *'),
+                decoration: const InputDecoration(
+                    labelText: 'Diastolic Blood Pressure (mmHg) *'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: weightCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Weight (kg)'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: pulseCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Pulse Rate (bpm)'),
+                decoration:
+                    const InputDecoration(labelText: 'Pulse Rate (bpm)'),
               ),
             ],
           ),
@@ -138,9 +145,11 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
           ),
           TextButton(
             onPressed: () {
-              if (systolicCtrl.text.trim().isEmpty || diastolicCtrl.text.trim().isEmpty) {
+              if (systolicCtrl.text.trim().isEmpty ||
+                  diastolicCtrl.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Systolic and Diastolic BP are required.')),
+                  const SnackBar(
+                      content: Text('Systolic and Diastolic BP are required.')),
                 );
                 return;
               }
@@ -215,7 +224,8 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: AppTheme.warning),
+              const Icon(Icons.error_outline,
+                  size: 48, color: AppTheme.warning),
               const SizedBox(height: 16),
               Text(
                 'Failed to load vitals: $_errorMessage',
@@ -244,7 +254,10 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
               const SizedBox(height: 16),
               Text(
                 'No historical daily readings found.',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 16, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -257,11 +270,13 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
       itemCount: _readings.length,
       itemBuilder: (context, index) {
         final reading = _readings[index];
-        final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(reading.date);
+        final formattedDate =
+            DateFormat('dd MMM yyyy, hh:mm a').format(reading.date);
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12.0),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
           elevation: 0,
           color: AppTheme.card,
           child: Padding(
@@ -274,7 +289,8 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.calendar_today, size: 14, color: AppTheme.textMuted),
+                          const Icon(Icons.calendar_today,
+                              size: 14, color: AppTheme.textMuted),
                           const SizedBox(width: 6),
                           Text(
                             formattedDate,
@@ -291,7 +307,8 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
                           _buildVitalIndicator(
                             icon: Icons.favorite,
                             label: 'BP',
-                            value: '${reading.bloodPressure.systolic}/${reading.bloodPressure.diastolic}',
+                            value:
+                                '${reading.bloodPressure.systolic}/${reading.bloodPressure.diastolic}',
                             unit: 'mmHg',
                             color: AppTheme.primary,
                           ),
@@ -299,7 +316,9 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
                           _buildVitalIndicator(
                             icon: Icons.monitor_weight_outlined,
                             label: 'Weight',
-                            value: reading.weightKg != null ? reading.weightKg!.toStringAsFixed(1) : 'N/A',
+                            value: reading.weightKg != null
+                                ? reading.weightKg!.toStringAsFixed(1)
+                                : 'N/A',
                             unit: 'kg',
                             color: AppTheme.success,
                           ),
@@ -307,7 +326,9 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
                           _buildVitalIndicator(
                             icon: Icons.heart_broken,
                             label: 'Pulse',
-                            value: reading.pulseRate != 0 ? reading.pulseRate.toString() : 'N/A',
+                            value: reading.pulseRate != 0
+                                ? reading.pulseRate.toString()
+                                : 'N/A',
                             unit: 'bpm',
                             color: AppTheme.warning,
                           ),
@@ -317,12 +338,14 @@ class _TrendsDetailScreenState extends State<TrendsDetailScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: AppTheme.primary),
+                  icon:
+                      const Icon(Icons.edit_outlined, color: AppTheme.primary),
                   onPressed: () => _showEditReadingDialog(reading),
                   tooltip: 'Edit Reading',
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.warning),
+                  icon:
+                      const Icon(Icons.delete_outline, color: AppTheme.warning),
                   onPressed: () => _deleteReading(reading.id ?? ''),
                   tooltip: 'Delete Reading',
                 ),

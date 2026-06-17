@@ -3,21 +3,18 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
-// Create a transporter object dynamically, falling back to Gmail service if host or port are not configured in the environment
-const transportConfig = {};
-if (process.env.EMAIL_HOST && process.env.EMAIL_PORT) {
-  transportConfig.host = process.env.EMAIL_HOST;
-  transportConfig.port = parseInt(process.env.EMAIL_PORT, 10);
-  transportConfig.secure = transportConfig.port === 465;
-} else {
-  transportConfig.service = 'gmail';
-}
-transportConfig.auth = {
-  user: process.env.EMAIL_USER,
-  pass: process.env.EMAIL_PASS, // This should be the 16-character App Password for Gmail
-};
-
-const transporter = nodemailer.createTransport(transportConfig);
+// Create a transporter object using the SMTP transport settings from the .env file
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  // 'secure: false' is correct for port 587, which uses STARTTLS encryption.
+  // For port 465 (SMTPS), this would be 'true'.
+  secure: false, 
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // This should be the 16-character App Password for Gmail
+  },
+});
 
 /**
  * Sends a patient summary email with a PDF attachment.

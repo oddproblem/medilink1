@@ -68,7 +68,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         _isRegeneratingSummary = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI Health Summary regenerated successfully!')),
+        const SnackBar(
+            content: Text('AI Health Summary regenerated successfully!')),
       );
     } catch (e) {
       setState(() {
@@ -324,7 +325,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ],
             ),
             content: Text(
-              response['message'] ?? 'Your report has been successfully generated and sent to your registered email address.',
+              response['message'] ??
+                  'Your report has been successfully generated and sent to your registered email address.',
               style: const TextStyle(height: 1.4),
             ),
             actions: [
@@ -612,94 +614,78 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           child: Column(
             children: [
-              // Services & Emergency Hub Grid
-              Card(
-                color: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Services & Emergency Hub',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              SectionCard(
+                title: langProvider.t('servicesHub'),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final actionTiles = [
+                      _quickActionTile(
+                        title: langProvider.t('sosEmergency'),
+                        subtitle: langProvider.t('sosEmergencyDesc'),
+                        icon: Icons.health_and_safety,
+                        color: Colors.red.shade800,
+                        onTap: () =>
+                            Navigator.of(context).pushNamed('/emergency'),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _quickActionTile(
-                              title: 'SOS Emergency',
-                              subtitle: 'Assistance & Alerts',
-                              icon: Icons.health_and_safety,
-                              color: Colors.red.shade800,
-                              onTap: () => Navigator.of(context).pushNamed('/emergency'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _quickActionTile(
-                              title: 'Prescription OCR',
-                              subtitle: 'Scan & Extract',
-                              icon: Icons.document_scanner,
-                              color: AppTheme.primary,
-                              onTap: () => Navigator.of(context).pushNamed('/ocr-scan'),
-                            ),
-                          ),
-                        ],
+                      _quickActionTile(
+                        title: langProvider.t('prescriptionOcr'),
+                        subtitle: langProvider.t('prescriptionOcrDesc'),
+                        icon: Icons.document_scanner,
+                        color: AppTheme.primary,
+                        onTap: () =>
+                            Navigator.of(context).pushNamed('/ocr-scan'),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _quickActionTile(
-                              title: 'Outbreak Hotspots',
-                              subtitle: 'Track Spread',
-                              icon: Icons.map_outlined,
-                              color: AppTheme.accent,
-                              onTap: () => Navigator.of(context).pushNamed('/hotspots'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _quickActionTile(
-                              title: 'PDF Health Report',
-                              subtitle: 'Email Medical History',
-                              icon: Icons.picture_as_pdf,
-                              color: Colors.orange,
-                              onTap: _generateHealthReport,
-                            ),
-                          ),
-                        ],
+                      _quickActionTile(
+                        title: langProvider.t('medicationSummary'),
+                        subtitle: langProvider.t('totalPrescriptions'),
+                        icon: Icons.medication_liquid_outlined,
+                        color: AppTheme.success,
+                        onTap: () => Navigator.of(context)
+                            .pushNamed('/medication-summary'),
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _quickActionTile(
-                              title: 'Skin Predictor',
-                              subtitle: 'AI Skin Scan',
-                              icon: Icons.center_focus_weak,
-                              color: Colors.cyan.shade700,
-                              onTap: () => Navigator.of(context).pushNamed('/disease-prediction'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _quickActionTile(
-                              title: 'Symptom Predictor',
-                              subtitle: 'AI Symptom Scan',
-                              icon: Icons.psychology_outlined,
-                              color: Colors.indigo.shade600,
-                              onTap: () => Navigator.of(context).pushNamed('/symptom-prediction'),
-                            ),
-                          ),
-                        ],
+                      _quickActionTile(
+                        title: langProvider.t('outbreakHotspots'),
+                        subtitle: langProvider.t('outbreakHotspotsDesc'),
+                        icon: Icons.map_outlined,
+                        color: AppTheme.accent,
+                        onTap: () =>
+                            Navigator.of(context).pushNamed('/hotspots'),
                       ),
-                    ],
-                  ),
+                      _quickActionTile(
+                        title: langProvider.t('pdfHealthReport'),
+                        subtitle: langProvider.t('pdfHealthReportDesc'),
+                        icon: Icons.picture_as_pdf,
+                        color: Colors.orange,
+                        onTap: _generateHealthReport,
+                      ),
+                      _quickActionTile(
+                        title: langProvider.t('skinPredictor'),
+                        subtitle: langProvider.t('skinPredictorDesc'),
+                        icon: Icons.center_focus_weak,
+                        color: Colors.cyan.shade700,
+                        onTap: () => Navigator.of(context)
+                            .pushNamed('/disease-prediction'),
+                      ),
+                      _quickActionTile(
+                        title: langProvider.t('symptomPredictor'),
+                        subtitle: langProvider.t('symptomPredictorDesc'),
+                        icon: Icons.psychology_outlined,
+                        color: Colors.indigo.shade600,
+                        onTap: () => Navigator.of(context)
+                            .pushNamed('/symptom-prediction'),
+                      ),
+                    ];
+
+                    return GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: constraints.maxWidth >= 720 ? 3 : 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: constraints.maxWidth < 380 ? 1.15 : 1.7,
+                      children: actionTiles,
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 16),
@@ -708,8 +694,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   final chart = SectionCard(
                     title: langProvider.t('Health Trends'),
                     trailing: TextButton.icon(
-                      icon: const Icon(Icons.list_alt, size: 16, color: AppTheme.primary),
-                      label: const Text('View Logs', style: TextStyle(color: AppTheme.primary, fontSize: 13)),
+                      icon: const Icon(Icons.list_alt,
+                          size: 16, color: AppTheme.primary),
+                      label: Text(
+                        langProvider.t('viewLogs'),
+                        style: const TextStyle(
+                            color: AppTheme.primary, fontSize: 13),
+                      ),
                       onPressed: () {
                         final currentUser = _apiService.currentUser;
                         if (currentUser == null) return;
@@ -720,7 +711,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                               patientId: currentUser.id,
                             ),
                           ),
-                        ).then((_) => _fetchPatientData()); // Refresh if anything was deleted
+                        ).then((_) =>
+                            _fetchPatientData()); // Refresh if anything was deleted
                       },
                     ),
                     child: SizedBox(
@@ -803,9 +795,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                         ),
                       )
                     : IconButton(
-                        icon: const Icon(Icons.refresh, color: AppTheme.primary),
+                        icon:
+                            const Icon(Icons.refresh, color: AppTheme.primary),
                         onPressed: _regenerateSummary,
-                        tooltip: 'Regenerate Summary',
+                        tooltip: langProvider.t('regenerateSummary'),
                       ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -908,11 +901,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     child: Column(
                       children: [
                         if (currentMeds.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(16),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
                             child: Text(
-                              'No active medicines. Prescriptions added by your doctor will appear here.',
-                              style: TextStyle(color: AppTheme.textMuted),
+                              langProvider.t('noCurrentMedicines'),
+                              style: const TextStyle(color: AppTheme.textMuted),
                               textAlign: TextAlign.center,
                             ),
                           )
@@ -1038,7 +1031,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                         color: AppTheme.warning,
                                       ),
                                       onPressed: () => _deleteNote(n.id),
-                                      tooltip: langProvider.t('deleteNoteTooltip'),
+                                      tooltip:
+                                          langProvider.t('deleteNoteTooltip'),
                                     ),
                                   ],
                                 ),
@@ -1056,7 +1050,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                             padding: const EdgeInsets.only(bottom: 8.0),
                             child: Row(
                               children: [
-                                const Icon(Icons.edit, size: 14, color: AppTheme.primary),
+                                const Icon(Icons.edit,
+                                    size: 14, color: AppTheme.primary),
                                 const SizedBox(width: 6),
                                 const Text(
                                   'Editing Note...',
@@ -1099,13 +1094,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                   return;
                                 }
                                 if (_editingNote != null) {
-                                  await _apiService.updateNote(_editingNote!.id, {
+                                  await _apiService
+                                      .updateNote(_editingNote!.id, {
                                     "patientId": currentUser.id,
                                     "noteText": note,
                                   });
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Note updated successfully'),
+                                      content:
+                                          Text('Note updated successfully'),
                                     ),
                                   );
                                 } else {
@@ -1133,7 +1130,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                                 );
                               }
                             },
-                            child: Text(_editingNote != null ? 'Save Changes' : langProvider.t('saveNote')),
+                            child: Text(_editingNote != null
+                                ? 'Save Changes'
+                                : langProvider.t('saveNote')),
                           ),
                         ),
                       ],
@@ -1240,7 +1239,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1252,7 +1252,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       ),
     );
   }
-
 
   List<Widget> _buildMedicineList(
     List<_MedicineInfo> medInfoList, {

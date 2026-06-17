@@ -3,14 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import '../../app_theme.dart';
-import '../../widgets/section_card.dart';
+import 'package:provider/provider.dart';
+import 'language_provider.dart';
 
 class DiseasePredictionScreen extends StatefulWidget {
   const DiseasePredictionScreen({super.key});
 
   @override
-  State<DiseasePredictionScreen> createState() => _DiseasePredictionScreenState();
+  State<DiseasePredictionScreen> createState() =>
+      _DiseasePredictionScreenState();
 }
 
 class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
@@ -21,6 +22,7 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
   Map<String, dynamic>? _predictionResult;
 
   Future<void> _pickImage(ImageSource source) async {
+    final lang = context.read<LanguageProvider>();
     try {
       final XFile? image = await _picker.pickImage(source: source);
       if (image != null) {
@@ -32,12 +34,13 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
       }
     } catch (e) {
       setState(() {
-        _error = 'Failed to pick image: $e';
+        _error = '${lang.t('cameraAccessError', 'Failed to pick image')}: $e';
       });
     }
   }
 
   Future<void> _predictCondition() async {
+    final lang = context.read<LanguageProvider>();
     if (_selectedImagePath == null) return;
 
     setState(() {
@@ -47,9 +50,10 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
     });
 
     try {
-      final url = Uri.parse('https://Raushan2709-Disease-Detection.hf.space/predict');
+      final url =
+          Uri.parse('https://Raushan2709-Disease-Detection.hf.space/predict');
       final request = http.MultipartRequest('POST', url);
-      
+
       request.files.add(
         await http.MultipartFile.fromPath(
           'file',
@@ -58,7 +62,8 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
         ),
       );
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 120));
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 120));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
@@ -69,13 +74,14 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
         });
       } else {
         setState(() {
-          _error = 'Server returned error status: ${response.statusCode}';
+          _error = '${lang.t('serverError', 'Server returned error status')}: ${response.statusCode}';
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'Prediction failed: $e. Please verify your internet connection.';
+        _error =
+            '${lang.t('predictionFailed', 'Prediction failed')}: $e. ${lang.t('serverError', 'Please verify your internet connection.')}';
         _isLoading = false;
       });
     }
@@ -91,13 +97,15 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Slate 900 dark theme background
+      backgroundColor: const Color(0xFF0F172A), // Slate 900
       appBar: AppBar(
-        title: const Text('AI Skin Disease Predictor'),
+        title: Text(lang.t('aiPredictorTitle', 'AI Skin Disease Predictor')),
         backgroundColor: const Color(0xFF1E293B), // Slate 800
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -105,13 +113,14 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 10),
-            const Text(
-              'Upload an image of a skin condition for instant AI analysis and precautions.',
+            Text(
+              lang.t('aiPredictorDesc', 'Upload an image of a skin condition for instant AI analysis and precautions.'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, height: 1.4),
+              style: const TextStyle(
+                  color: Color(0xFF94A3B8), fontSize: 14, height: 1.4),
             ),
             const SizedBox(height: 24),
-            
+
             // Image Preview / Upload Area
             Center(
               child: _selectedImagePath == null
@@ -123,21 +132,27 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFF1E293B),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF334155), width: 2),
+                          border: Border.all(
+                              color: const Color(0xFF334155), width: 2),
                         ),
-                        child: const Column(
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo_outlined, size: 54, color: Colors.cyan),
-                            SizedBox(height: 16),
+                            const Icon(Icons.add_a_photo_outlined,
+                                size: 54, color: Colors.cyan),
+                            const SizedBox(height: 16),
                             Text(
-                              'Tap to Provide Skin Image',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              lang.t('provideImage', 'Tap to Provide Skin Image'),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16),
                             ),
-                            SizedBox(height: 6),
+                            const SizedBox(height: 6),
                             Text(
-                              'Supports Camera or Photo Gallery',
-                              style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                              lang.t('noImageSelected', 'Supports Camera or Photo Gallery'),
+                              style: const TextStyle(
+                                  color: Color(0xFF64748B), fontSize: 12),
                             ),
                           ],
                         ),
@@ -160,7 +175,8 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
                           child: CircleAvatar(
                             backgroundColor: Colors.black.withOpacity(0.7),
                             child: IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white),
+                              icon:
+                                  const Icon(Icons.close, color: Colors.white),
                               onPressed: _clearImage,
                             ),
                           ),
@@ -169,20 +185,23 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
                     ),
             ),
             const SizedBox(height: 20),
-            
-            if (_selectedImagePath != null && !_isLoading && _predictionResult == null) ...[
+
+            if (_selectedImagePath != null &&
+                !_isLoading &&
+                _predictionResult == null) ...[
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _predictCondition,
                       icon: const Icon(Icons.analytics_outlined),
-                      label: const Text('Predict Condition'),
+                      label: Text(lang.t('predictCondition', 'Predict Condition')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.cyan.shade600,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -195,9 +214,10 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
               const SizedBox(height: 20),
               const CircularProgressIndicator(color: Colors.cyan),
               const SizedBox(height: 12),
-              const Text(
-                'Analyzing Image using AI...',
-                style: TextStyle(color: Colors.cyan, fontWeight: FontWeight.w500),
+              Text(
+                lang.t('analyzingImage', 'Analyzing Image using AI...'),
+                style:
+                    const TextStyle(color: Colors.cyan, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 20),
             ],
@@ -221,10 +241,10 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
 
             // Prediction Results Display
             if (_predictionResult != null) ...[
-              _buildResultCard(_predictionResult!),
+              _buildResultCard(_predictionResult!, lang),
               const SizedBox(height: 20),
             ],
-            
+
             // Camera / Upload Action Bar when image is not selected
             if (_selectedImagePath == null) ...[
               Row(
@@ -233,11 +253,13 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _pickImage(ImageSource.camera),
                       icon: const Icon(Icons.camera, color: Colors.cyan),
-                      label: const Text('Use Camera', style: TextStyle(color: Colors.cyan)),
+                      label: Text(lang.t('useCamera', 'Use Camera'),
+                          style: const TextStyle(color: Colors.cyan)),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF334155)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -246,11 +268,13 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _pickImage(ImageSource.gallery),
                       icon: const Icon(Icons.photo_library, color: Colors.cyan),
-                      label: const Text('Gallery', style: TextStyle(color: Colors.cyan)),
+                      label: Text(lang.t('uploadImage', 'Gallery'),
+                          style: const TextStyle(color: Colors.cyan)),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF334155)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -263,9 +287,10 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
     );
   }
 
-  Widget _buildResultCard(Map<String, dynamic> result) {
+  Widget _buildResultCard(Map<String, dynamic> result, LanguageProvider lang) {
     final prediction = result['prediction'] ?? 'Unknown Condition';
-    final double confidence = double.tryParse(result['confidence']?.toString() ?? '0.0') ?? 0.0;
+    final double confidence =
+        double.tryParse(result['confidence']?.toString() ?? '0.0') ?? 0.0;
     final description = result['description'] ?? 'No description provided.';
     final precautions = result['precautions'] as List<dynamic>? ?? [];
 
@@ -286,24 +311,31 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
               Expanded(
                 child: Text(
                   prediction,
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.cyan.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${confidence.toStringAsFixed(1)}% Match',
-                  style: const TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold, fontSize: 13),
+                  '${confidence.toStringAsFixed(1)}% ${lang.t('confidence', 'Match')}',
+                  style: const TextStyle(
+                      color: Colors.cyan,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Confidence progress bar
           LinearProgressIndicator(
             value: confidence / 100,
@@ -316,14 +348,18 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
 
           Text(
             description,
-            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, height: 1.4),
+            style: const TextStyle(
+                color: Color(0xFFCBD5E1), fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 20),
 
           if (precautions.isNotEmpty) ...[
-            const Text(
-              'Recommended Precautions:',
-              style: TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold, fontSize: 15),
+            Text(
+              lang.t('recommendedPrecautions', 'Recommended Precautions:'),
+              style: const TextStyle(
+                  color: Colors.cyan,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15),
             ),
             const SizedBox(height: 8),
             ...precautions.map((prec) {
@@ -332,11 +368,16 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('• ', style: TextStyle(color: Colors.cyan, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text('• ',
+                        style: TextStyle(
+                            color: Colors.cyan,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold)),
                     Expanded(
                       child: Text(
                         prec.toString(),
-                        style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13),
+                        style: const TextStyle(
+                            color: Color(0xFFE2E8F0), fontSize: 13),
                       ),
                     ),
                   ],
@@ -348,9 +389,12 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
           const SizedBox(height: 20),
           const Divider(color: Color(0xFF334155)),
           const SizedBox(height: 8),
-          const Text(
-            'Disclaimer: This is an AI-based prediction and does not substitute a medical diagnosis. Always consult a certified healthcare professional for diagnosis and treatment.',
-            style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontStyle: FontStyle.italic),
+          Text(
+            lang.t('disclaimerText', 'Disclaimer: This is an AI-based prediction and does not substitute a medical diagnosis. Always consult a certified healthcare professional for diagnosis and treatment.'),
+            style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 11,
+                fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -358,6 +402,7 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
   }
 
   void _showPickerOptions(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
@@ -370,7 +415,8 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt, color: Colors.cyan),
-                title: const Text('Take a Photo', style: TextStyle(color: Colors.white)),
+                title: Text(lang.t('capturePhoto', 'Take a Photo'),
+                    style: const TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickImage(ImageSource.camera);
@@ -378,7 +424,8 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.cyan),
-                title: const Text('Choose from Gallery', style: TextStyle(color: Colors.white)),
+                title: Text(lang.t('uploadNew', 'Choose from Gallery'),
+                    style: const TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickImage(ImageSource.gallery);
