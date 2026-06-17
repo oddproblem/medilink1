@@ -170,11 +170,9 @@ class _SymptomPredictionScreenState extends State<SymptomPredictionScreen> {
     });
 
     try {
-      // Step 1: POST request to initiate Gradio prediction
-      final postUrl = Uri.parse(
-          'https://raushan2709-disease-prediction-workers.hf.space/gradio_api/call/predict_disease');
+      final postUrl = Uri.parse('https://hmm183-disease-prediction-workers.hf.space/predict');
       final postPayload = {
-        "data": [_selectedSymptoms.toList()]
+        "selected_symptoms": _selectedSymptoms.toList()
       };
 
       final postResponse = await http
@@ -187,49 +185,29 @@ class _SymptomPredictionScreenState extends State<SymptomPredictionScreen> {
 
       if (postResponse.statusCode != 200) {
         throw Exception(
-            'Failed to initiate prediction (Status: ${postResponse.statusCode})');
+            'Failed to retrieve prediction (Status: ${postResponse.statusCode})');
       }
 
       final postData = jsonDecode(postResponse.body);
-      final eventId = postData['event_id'];
+      final rawPrediction = postData['prediction']?.toString();
 
-      if (eventId == null) {
-        throw Exception('Server did not return an event ID');
+      if (rawPrediction == null) {
+        throw Exception('Server did not return a prediction');
       }
 
-      // Step 2: GET request to retrieve SSE result
-      final getUrl = Uri.parse(
-          'https://raushan2709-disease-prediction-workers.hf.space/gradio_api/call/predict_disease/$eventId');
-      final getResponse =
-          await http.get(getUrl).timeout(const Duration(seconds: 40));
-
-      if (getResponse.statusCode == 200) {
-        final lines = getResponse.body.split('\n');
-        String? prediction;
-        for (var line in lines) {
-          if (line.startsWith('data:')) {
-            final dataStr = line.substring(5).trim();
-            final dataJson = jsonDecode(dataStr);
-            if (dataJson is List && dataJson.isNotEmpty) {
-              prediction = dataJson[0].toString();
-              break;
-            }
-          }
+      // Smart dynamic translation (only runs if language != English)
+      String finalPrediction = rawPrediction;
+      if (lang.selectedLanguage != 'en') {
+        final translated = await lang.translateTexts([rawPrediction]);
+        if (translated.isNotEmpty) {
+          finalPrediction = translated.first;
         }
-
-        if (prediction != null) {
-          setState(() {
-            _predictedDisease = prediction;
-            _isLoading = false;
-          });
-        } else {
-          throw Exception(
-              'Failed to parse prediction result from server output');
-        }
-      } else {
-        throw Exception(
-            'Failed to retrieve prediction result (Status: ${getResponse.statusCode})');
       }
+
+      setState(() {
+        _predictedDisease = finalPrediction;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _error =

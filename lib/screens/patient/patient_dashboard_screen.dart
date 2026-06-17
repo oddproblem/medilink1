@@ -167,13 +167,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         final allPrescriptions = results[0] as List<Prescription>;
         final historyList = results[1] as List<DiseaseHistory>;
         final notesList = results[2] as List<Note>;
-        HealthSummary? summaryData = results[3] as HealthSummary?;
-        // If no summary exists, generate one now.
-        if (summaryData == null) {
-          summaryData = await _apiService.generateSummary({
-            'patientId': patientId,
-          });
-        }
+        final HealthSummary? summaryData = results[3] as HealthSummary?;
         final readingsList = results[4] as List<DailyReading>;
 
         // Flatten the list of medicines from all prescriptions, like the web app

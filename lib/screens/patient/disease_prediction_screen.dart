@@ -51,7 +51,7 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
 
     try {
       final url =
-          Uri.parse('https://Raushan2709-Disease-Detection.hf.space/predict');
+          Uri.parse('https://hmm183-skin-disease-detection.hf.space/predict');
       final request = http.MultipartRequest('POST', url);
 
       request.files.add(
@@ -67,11 +67,48 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        setState(() {
-          _predictionResult = decoded;
-          _isLoading = false;
-        });
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final double confidence =
+            double.tryParse(decoded['confidence']?.toString() ?? '0.0') ?? 0.0;
+
+        if (confidence < 65) {
+          setState(() {
+            _error = lang.t('lowConfidenceError', 'Low confidence in prediction. Please try with a clearer image or consult a doctor.');
+            _predictionResult = null;
+            _isLoading = false;
+          });
+        } else {
+          Map<String, dynamic> finalResult = Map.of(decoded);
+
+          // Smart dynamic translation of ML response text (only if not English)
+          if (lang.selectedLanguage != 'en') {
+            final predictionText = decoded['prediction']?.toString() ?? '';
+            final descriptionText = decoded['description']?.toString() ?? '';
+            final precautionsList = decoded['precautions'] as List<dynamic>? ?? [];
+
+            final toTranslate = [
+              predictionText,
+              descriptionText,
+              ...precautionsList.map((e) => e.toString()),
+            ];
+
+            final translated = await lang.translateTexts(toTranslate);
+            if (translated.isNotEmpty) {
+              finalResult['prediction'] = translated[0];
+              if (translated.length > 1) {
+                finalResult['description'] = translated[1];
+              }
+              if (translated.length > 2) {
+                finalResult['precautions'] = translated.sublist(2);
+              }
+            }
+          }
+
+          setState(() {
+            _predictionResult = finalResult;
+            _isLoading = false;
+          });
+        }
       } else {
         setState(() {
           _error = '${lang.t('serverError', 'Server returned error status')}: ${response.statusCode}';

@@ -536,8 +536,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         _apiService.getPrescriptions(widget.patient.id),
         _apiService.getPatientHistory(widget.patient.id),
         _apiService.getDailyReadings(widget.patient.id),
-        // The backend provides a POST endpoint to generate a summary, not GET.
-        _apiService.generateSummary({'patientId': widget.patient.id}),
+        // Fetch existing summary to load sub-second. Can regenerate via refresh button.
+        _apiService.getSummary(widget.patient.id),
         _apiService.getNotesByPatient(widget.patient.id),
       ]);
 

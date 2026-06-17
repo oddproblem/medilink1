@@ -81,6 +81,14 @@ app.get('/api/v1/config/maps', (req, res) => {
   res.status(200).json({ apiKey });
 });
 
+app.get('/api/v1/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.listen(PORT, () => {
   console.log(
     `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`

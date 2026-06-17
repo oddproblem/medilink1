@@ -6,6 +6,7 @@ import 'package:medilink1/screens/patient_detail_screen.dart';
 import 'package:medilink1/core/models/Patient.dart';
 import 'package:medilink1/core/network/ApiService.dart';
 import 'package:medilink1/widgets/stat_card.dart';
+import 'package:medilink1/app_theme.dart';
 
 import '../patient/language_provider.dart';
 
@@ -117,6 +118,42 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             icon: const Icon(Icons.calendar_month_outlined),
             tooltip: langProvider.t('myAppointments', 'Appointments'),
           ),
+          // Language Dropdown
+          if (langProvider.isTranslating)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          else
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: langProvider.selectedLanguage,
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    context.read<LanguageProvider>().setLanguage(newValue);
+                  }
+                },
+                items: langProvider.supportedLanguages
+                    .map<DropdownMenuItem<String>>((lang) {
+                  return DropdownMenuItem<String>(
+                    value: lang['value']!,
+                    child: Text(
+                      lang['label']!,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  );
+                }).toList(),
+                dropdownColor: Colors.white,
+                icon: const Icon(Icons.language, color: Colors.white),
+              ),
+            ),
           IconButton(
             onPressed: () {
               _apiService.logout();
@@ -126,6 +163,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               );
             },
             icon: const Icon(Icons.logout),
+            tooltip: langProvider.t('logout', 'Log out'),
           ),
         ],
       ),
