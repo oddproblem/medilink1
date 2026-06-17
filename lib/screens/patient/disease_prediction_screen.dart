@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:http_parser/http_parser.dart';
 import 'language_provider.dart';
 
 class DiseasePredictionScreen extends StatefulWidget {
@@ -54,11 +55,32 @@ class _DiseasePredictionScreenState extends State<DiseasePredictionScreen> {
           Uri.parse('https://hmm183-skin-disease-detection.hf.space/predict');
       final request = http.MultipartRequest('POST', url);
 
+      final filePath = _selectedImagePath!;
+      String filename = filePath.split('/').last;
+      if (!filename.contains('.')) {
+        filename = '$filename.jpg';
+      }
+      final ext = filename.split('.').last.toLowerCase();
+      
+      MediaType contentType;
+      if (ext == 'png') {
+        contentType = MediaType('image', 'png');
+      } else if (ext == 'gif') {
+        contentType = MediaType('image', 'gif');
+      } else if (ext == 'webp') {
+        contentType = MediaType('image', 'webp');
+      } else if (ext == 'bmp') {
+        contentType = MediaType('image', 'bmp');
+      } else {
+        contentType = MediaType('image', 'jpeg');
+      }
+
       request.files.add(
         await http.MultipartFile.fromPath(
           'file',
-          _selectedImagePath!,
-          filename: 'skin_image.jpg',
+          filePath,
+          filename: filename,
+          contentType: contentType,
         ),
       );
 

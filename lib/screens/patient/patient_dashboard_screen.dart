@@ -45,6 +45,222 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   bool _isRegeneratingSummary = false;
   Note? _editingNote;
 
+  // Original copies of data for dynamic translation
+  List<Prescription> _originalPrescriptions = [];
+  List<DiseaseHistory> _originalDiseaseHistory = [];
+  List<Note> _originalNotes = [];
+  HealthSummary? _originalHealthSummary;
+  String? _lastLanguage;
+  bool _isTranslatingDynamic = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lang = Provider.of<LanguageProvider>(context);
+    if (_lastLanguage != lang.selectedLanguage) {
+      _lastLanguage = lang.selectedLanguage;
+      _applyTranslations();
+    }
+  }
+
+  Future<void> _applyTranslations() async {
+    if (!mounted) return;
+    final lang = context.read<LanguageProvider>();
+    final targetLang = lang.selectedLanguage;
+
+    if (targetLang == 'en') {
+      setState(() {
+        diseaseHistory = _originalDiseaseHistory;
+        notes = _originalNotes;
+        healthSummary = _originalHealthSummary;
+        
+        final flatMeds = _originalPrescriptions.expand((p) {
+          return p.medicines.map((m) => _MedicineInfo(m, p.id));
+        }).toList();
+        
+        prescribedMeds = flatMeds
+            .where((info) => info.medicine.status == 'prescribed')
+            .toList();
+        currentMeds = flatMeds
+            .where((info) => info.medicine.status == 'current')
+            .toList();
+        pastMeds = flatMeds
+            .where((info) => info.medicine.status == 'past')
+            .toList();
+        
+        _isTranslatingDynamic = false;
+        isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isTranslatingDynamic = true;
+    });
+
+    try {
+      List<String> toTranslate = [];
+
+      if (_originalHealthSummary != null) {
+        toTranslate.add(_originalHealthSummary!.summaryContent);
+      }
+
+      for (var dh in _originalDiseaseHistory) {
+        toTranslate.add(dh.illnessName);
+        toTranslate.add(dh.remarks ?? '');
+        for (var med in dh.medicinesPrescribed) {
+          toTranslate.add(med);
+        }
+      }
+
+      for (var n in _originalNotes) {
+        toTranslate.add(n.noteText);
+      }
+
+      for (var p in _originalPrescriptions) {
+        for (var m in p.medicines) {
+          toTranslate.add(m.name);
+          toTranslate.add(m.dosage ?? '');
+          toTranslate.add(m.frequency ?? '');
+          toTranslate.add(m.duration ?? '');
+        }
+      }
+
+      final translated = await lang.translateTexts(toTranslate);
+
+      if (!mounted) return;
+
+      if (translated.length != toTranslate.length) {
+        throw Exception("Translation count mismatch");
+      }
+
+      int index = 0;
+
+      HealthSummary? transSummary;
+      if (_originalHealthSummary != null) {
+        transSummary = HealthSummary(
+          id: _originalHealthSummary!.id,
+          summaryContent: translated[index++],
+          sourceData: _originalHealthSummary!.sourceData,
+          generatedAt: _originalHealthSummary!.generatedAt,
+        );
+      }
+
+      List<DiseaseHistory> transHistory = [];
+      for (var dh in _originalDiseaseHistory) {
+        final illness = translated[index++];
+        final remVal = translated[index++];
+        final remarks = remVal.isEmpty ? null : remVal;
+        List<String> meds = [];
+        for (var _ in dh.medicinesPrescribed) {
+          meds.add(translated[index++]);
+        }
+        transHistory.add(DiseaseHistory(
+          id: dh.id,
+          patientId: dh.patientId,
+          illnessName: illness,
+          diagnosisDate: dh.diagnosisDate,
+          initialSymptoms: dh.initialSymptoms,
+          remarks: remarks,
+          medicinesPrescribed: meds,
+          prescribedBy: dh.prescribedBy,
+          status: dh.status,
+          hospital: dh.hospital,
+          location: dh.location,
+        ));
+      }
+
+      List<Note> transNotes = [];
+      for (var n in _originalNotes) {
+        transNotes.add(Note(
+          id: n.id,
+          noteText: translated[index++],
+          createdByName: n.createdByName,
+          createdByType: n.createdByType,
+          createdAt: n.createdAt,
+        ));
+      }
+
+      List<Prescription> transPrescriptions = [];
+      for (var p in _originalPrescriptions) {
+        List<Medicine> meds = [];
+        for (var m in p.medicines) {
+          final name = translated[index++];
+          final dosVal = translated[index++];
+          final dosage = dosVal.isEmpty ? null : dosVal;
+          final freqVal = translated[index++];
+          final frequency = freqVal.isEmpty ? null : freqVal;
+          final durVal = translated[index++];
+          final duration = durVal.isEmpty ? null : durVal;
+
+          meds.add(Medicine(
+            id: m.id,
+            name: name,
+            dosage: dosage,
+            frequency: frequency,
+            duration: duration,
+            status: m.status,
+          ));
+        }
+        transPrescriptions.add(Prescription(
+          id: p.id,
+          patientId: p.patientId,
+          doctorId: p.doctorId,
+          date: p.date,
+          medicines: meds,
+          prescriptionUrl: p.prescriptionUrl,
+        ));
+      }
+
+      final flatMeds = transPrescriptions.expand((p) {
+        return p.medicines.map((m) => _MedicineInfo(m, p.id));
+      }).toList();
+
+      setState(() {
+        healthSummary = transSummary;
+        diseaseHistory = transHistory;
+        notes = transNotes;
+        prescribedMeds = flatMeds
+            .where((info) => info.medicine.status == 'prescribed')
+            .toList();
+        currentMeds = flatMeds
+            .where((info) => info.medicine.status == 'current')
+            .toList();
+        pastMeds = flatMeds
+            .where((info) => info.medicine.status == 'past')
+            .toList();
+        _isTranslatingDynamic = false;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      debugPrint("Failed to apply dynamic translations: $e");
+      if (mounted) {
+        setState(() {
+          diseaseHistory = _originalDiseaseHistory;
+          notes = _originalNotes;
+          healthSummary = _originalHealthSummary;
+
+          final flatMeds = _originalPrescriptions.expand((p) {
+            return p.medicines.map((m) => _MedicineInfo(m, p.id));
+          }).toList();
+
+          prescribedMeds = flatMeds
+              .where((info) => info.medicine.status == 'prescribed')
+              .toList();
+          currentMeds = flatMeds
+              .where((info) => info.medicine.status == 'current')
+              .toList();
+          pastMeds = flatMeds
+              .where((info) => info.medicine.status == 'past')
+              .toList();
+          _isTranslatingDynamic = false;
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   final _noteCtrl = TextEditingController();
 
   // Controllers for adding daily readings
@@ -64,7 +280,10 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         'patientId': currentUser.id,
       });
       setState(() {
-        healthSummary = summary;
+        _originalHealthSummary = summary;
+      });
+      await _applyTranslations();
+      setState(() {
         _isRegeneratingSummary = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -170,27 +389,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         final HealthSummary? summaryData = results[3] as HealthSummary?;
         final readingsList = results[4] as List<DailyReading>;
 
-        // Flatten the list of medicines from all prescriptions, like the web app
-        final flatMeds = allPrescriptions.expand((p) {
-          return p.medicines.map((m) => _MedicineInfo(m, p.id));
-        }).toList();
-
         setState(() {
-          prescribedMeds =
-              flatMeds // Filter the flat list of medicines by status
-                  .where((info) => info.medicine.status == 'prescribed')
-                  .toList();
-          currentMeds = flatMeds
-              .where((info) => info.medicine.status == 'current')
-              .toList();
-          pastMeds =
-              flatMeds.where((info) => info.medicine.status == 'past').toList();
-          diseaseHistory = historyList;
-          notes = notesList;
-          healthSummary = summaryData;
+          _originalPrescriptions = allPrescriptions;
+          _originalDiseaseHistory = historyList;
+          _originalNotes = notesList;
+          _originalHealthSummary = summaryData;
           dailyReadings = readingsList;
-          isLoading = false;
         });
+
+        await _applyTranslations();
       }
     } catch (e) {
       if (mounted) {

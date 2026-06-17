@@ -98,7 +98,8 @@ class LanguageProvider with ChangeNotifier {
       } else {
         _activeTranslations = const {};
       }
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint("LanguageProvider ERROR: failed to load translations for $langCode: $e\n$stack");
       _activeTranslations = const {};
     } finally {
       _isTranslating = false;

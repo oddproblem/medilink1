@@ -23,6 +23,124 @@ class _MedicationSummaryScreenState extends State<MedicationSummaryScreen> {
   int _prescriptionCount = 0;
   List<Map<String, dynamic>> _prescriptions = [];
 
+  // Original copies of data for dynamic translation
+  List<Map<String, dynamic>> _originalPrescriptions = [];
+  String? _lastLanguage;
+  bool _isTranslatingDynamic = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lang = Provider.of<LanguageProvider>(context);
+    if (_lastLanguage != lang.selectedLanguage) {
+      _lastLanguage = lang.selectedLanguage;
+      _applyTranslations();
+    }
+  }
+
+  Future<void> _applyTranslations() async {
+    if (!mounted) return;
+    final lang = context.read<LanguageProvider>();
+    final targetLang = lang.selectedLanguage;
+
+    if (targetLang == 'en') {
+      setState(() {
+        _prescriptions = _originalPrescriptions;
+        _isTranslatingDynamic = false;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isTranslatingDynamic = true;
+    });
+
+    try {
+      List<String> toTranslate = [];
+
+      for (var pres in _originalPrescriptions) {
+        final medicines = pres['medicines'];
+        if (medicines is List) {
+          for (var med in medicines) {
+            if (med is Map) {
+              toTranslate.add(med['name'] ?? med['medicine'] ?? '');
+              toTranslate.add(med['dosage'] ?? med['dose'] ?? '');
+              toTranslate.add(med['frequency'] ?? '');
+              toTranslate.add(med['duration'] ?? med['instructions'] ?? '');
+            }
+          }
+        }
+      }
+
+      if (toTranslate.isEmpty) {
+        setState(() {
+          _prescriptions = _originalPrescriptions;
+          _isTranslatingDynamic = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final translated = await lang.translateTexts(toTranslate);
+
+      if (!mounted) return;
+
+      if (translated.length != toTranslate.length) {
+        throw Exception("Translation count mismatch");
+      }
+
+      int index = 0;
+      List<Map<String, dynamic>> transPrescriptions = [];
+
+      for (var pres in _originalPrescriptions) {
+        final medicines = pres['medicines'];
+        List<Map<String, dynamic>> transMeds = [];
+        if (medicines is List) {
+          for (var med in medicines) {
+            if (med is Map) {
+              final name = translated[index++];
+              final dosage = translated[index++];
+              final frequency = translated[index++];
+              final duration = translated[index++];
+
+              transMeds.add({
+                ...Map<String, dynamic>.from(med),
+                'name': name,
+                'medicine': name,
+                'dosage': dosage,
+                'dose': dosage,
+                'frequency': frequency,
+                'duration': duration,
+                'instructions': duration,
+              });
+            }
+          }
+        }
+        transPrescriptions.add({
+          ...pres,
+          'medicines': transMeds,
+        });
+      }
+
+      setState(() {
+        _prescriptions = transPrescriptions;
+        _isTranslatingDynamic = false;
+        _isLoading = false;
+      });
+
+    } catch (e) {
+      debugPrint("Failed to apply dynamic translations: $e");
+      if (mounted) {
+        setState(() {
+          _prescriptions = _originalPrescriptions;
+          _isTranslatingDynamic = false;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -57,9 +175,9 @@ class _MedicationSummaryScreenState extends State<MedicationSummaryScreen> {
       if (!mounted) return;
       setState(() {
         _prescriptionCount = results[0] as int;
-        _prescriptions = prescriptions;
-        _isLoading = false;
+        _originalPrescriptions = prescriptions;
       });
+      await _applyTranslations();
     } catch (e) {
       if (!mounted) return;
       setState(() {

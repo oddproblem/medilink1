@@ -52,6 +52,181 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   bool _isRegeneratingSummary = false;
   List<_ChatMessage> _chatMessages = [];
 
+  // Original copies of data for dynamic translation
+  List<Prescription> _originalPrescriptions = [];
+  List<DiseaseHistory> _originalHistory = [];
+  List<Note> _originalNotes = [];
+  HealthSummary? _originalHealthSummary;
+  String? _lastLanguage;
+  bool _isTranslatingDynamic = false;
+
+  Future<void> _applyTranslations() async {
+    if (!mounted) return;
+    final lang = context.read<LanguageProvider>();
+    final targetLang = lang.selectedLanguage;
+
+    if (targetLang == 'en') {
+      setState(() {
+        prescriptions = _originalPrescriptions;
+        history = _originalHistory;
+        notes = _originalNotes;
+        healthSummary = _originalHealthSummary;
+        _isTranslatingDynamic = false;
+        isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isTranslatingDynamic = true;
+    });
+
+    try {
+      List<String> toTranslate = [];
+
+      // 1. Health Summary
+      if (_originalHealthSummary != null) {
+        toTranslate.add(_originalHealthSummary!.summaryContent);
+      }
+
+      // 2. Disease History
+      for (var dh in _originalHistory) {
+        toTranslate.add(dh.illnessName);
+        toTranslate.add(dh.remarks ?? '');
+        for (var med in dh.medicinesPrescribed) {
+          toTranslate.add(med);
+        }
+      }
+
+      // 3. Notes
+      for (var n in _originalNotes) {
+        toTranslate.add(n.noteText);
+      }
+
+      // 4. Prescriptions & Medicines
+      for (var p in _originalPrescriptions) {
+        for (var m in p.medicines) {
+          toTranslate.add(m.name);
+          toTranslate.add(m.dosage ?? '');
+          toTranslate.add(m.frequency ?? '');
+          toTranslate.add(m.duration ?? '');
+        }
+      }
+
+      final translated = await lang.translateTexts(toTranslate);
+
+      if (!mounted) return;
+
+      if (translated.length != toTranslate.length) {
+        throw Exception("Translation count mismatch");
+      }
+
+      int index = 0;
+
+      // 1. Reconstruct Health Summary
+      HealthSummary? transSummary;
+      if (_originalHealthSummary != null) {
+        transSummary = HealthSummary(
+          id: _originalHealthSummary!.id,
+          summaryContent: translated[index++],
+          sourceData: _originalHealthSummary!.sourceData,
+          generatedAt: _originalHealthSummary!.generatedAt,
+        );
+      }
+
+      // 2. Reconstruct Disease History
+      List<DiseaseHistory> transHistory = [];
+      for (var dh in _originalHistory) {
+        final illness = translated[index++];
+        final remVal = translated[index++];
+        final remarks = remVal.isEmpty ? null : remVal;
+        List<String> meds = [];
+        for (var _ in dh.medicinesPrescribed) {
+          meds.add(translated[index++]);
+        }
+        transHistory.add(DiseaseHistory(
+          id: dh.id,
+          patientId: dh.patientId,
+          illnessName: illness,
+          diagnosisDate: dh.diagnosisDate,
+          initialSymptoms: dh.initialSymptoms,
+          remarks: remarks,
+          medicinesPrescribed: meds,
+          prescribedBy: dh.prescribedBy,
+          status: dh.status,
+          hospital: dh.hospital,
+          location: dh.location,
+        ));
+      }
+
+      // 3. Reconstruct Notes
+      List<Note> transNotes = [];
+      for (var n in _originalNotes) {
+        transNotes.add(Note(
+          id: n.id,
+          noteText: translated[index++],
+          createdByName: n.createdByName,
+          createdByType: n.createdByType,
+          createdAt: n.createdAt,
+        ));
+      }
+
+      // 4. Reconstruct Prescriptions & Medicines
+      List<Prescription> transPrescriptions = [];
+      for (var p in _originalPrescriptions) {
+        List<Medicine> meds = [];
+        for (var m in p.medicines) {
+          final name = translated[index++];
+          final dosVal = translated[index++];
+          final dosage = dosVal.isEmpty ? null : dosVal;
+          final freqVal = translated[index++];
+          final frequency = freqVal.isEmpty ? null : freqVal;
+          final durVal = translated[index++];
+          final duration = durVal.isEmpty ? null : durVal;
+
+          meds.add(Medicine(
+            id: m.id,
+            name: name,
+            dosage: dosage,
+            frequency: frequency,
+            duration: duration,
+            status: m.status,
+          ));
+        }
+        transPrescriptions.add(Prescription(
+          id: p.id,
+          patientId: p.patientId,
+          doctorId: p.doctorId,
+          date: p.date,
+          medicines: meds,
+          prescriptionUrl: p.prescriptionUrl,
+        ));
+      }
+
+      setState(() {
+        healthSummary = transSummary;
+        history = transHistory;
+        notes = transNotes;
+        prescriptions = transPrescriptions;
+        _isTranslatingDynamic = false;
+        isLoading = false;
+      });
+
+    } catch (e) {
+      debugPrint("Failed to apply dynamic translations: $e");
+      if (mounted) {
+        setState(() {
+          prescriptions = _originalPrescriptions;
+          history = _originalHistory;
+          notes = _originalNotes;
+          healthSummary = _originalHealthSummary;
+          _isTranslatingDynamic = false;
+          isLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _regenerateSummary() async {
     setState(() {
       _isRegeneratingSummary = true;
@@ -61,7 +236,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
         'patientId': widget.patient.id,
       });
       setState(() {
-        healthSummary = summary;
+        _originalHealthSummary = summary;
+      });
+      await _applyTranslations();
+      setState(() {
         _isRegeneratingSummary = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -522,12 +700,17 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _chatMessages = [
-      _ChatMessage(
-        context.read<LanguageProvider>().t('Ask History, Medicines etc'),
-        false,
-      ),
-    ];
+    final lang = Provider.of<LanguageProvider>(context);
+    if (_lastLanguage != lang.selectedLanguage) {
+      _lastLanguage = lang.selectedLanguage;
+      _chatMessages = [
+        _ChatMessage(
+          lang.t('Ask History, Medicines etc'),
+          false,
+        ),
+      ];
+      _applyTranslations();
+    }
   }
 
   Future<void> _fetchPatientData() async {
@@ -543,14 +726,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
 
       if (mounted) {
         setState(() {
-          // ApiService methods already return typed lists. We just need to cast them.
-          prescriptions = results[0] as List<Prescription>;
-          history = results[1] as List<DiseaseHistory>;
+          _originalPrescriptions = results[0] as List<Prescription>;
+          _originalHistory = results[1] as List<DiseaseHistory>;
           dailyReadings = results[2] as List<DailyReading>;
-          healthSummary = results[3] as HealthSummary?;
-          notes = results[4] as List<Note>;
-          isLoading = false;
+          _originalHealthSummary = results[3] as HealthSummary?;
+          _originalNotes = results[4] as List<Note>;
         });
+
+        await _applyTranslations();
       }
     } catch (e) {
       if (mounted) {
@@ -753,6 +936,42 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
       appBar: AppBar(
         title: Text("Patient: ${widget.patient.name}"),
         actions: [
+          // Language Dropdown
+          if (langProvider.isTranslating)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          else
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: langProvider.selectedLanguage,
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    context.read<LanguageProvider>().setLanguage(newValue);
+                  }
+                },
+                items: langProvider.supportedLanguages
+                    .map<DropdownMenuItem<String>>((lang) {
+                  return DropdownMenuItem<String>(
+                    value: lang['value']!,
+                    child: Text(
+                      lang['label']!,
+                      style: const TextStyle(color: Colors.black),
+                    ),
+                  );
+                }).toList(),
+                dropdownColor: Colors.white,
+                icon: const Icon(Icons.language, color: Colors.white),
+              ),
+            ),
           TextButton.icon(
             icon: const Icon(Icons.logout, color: Colors.white),
             label: Text(
