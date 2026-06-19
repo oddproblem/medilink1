@@ -20,7 +20,7 @@ if sys.platform.startswith("win"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-TRANSLATE_URL = "https://swiftmedi-translation-service.onrender.com/translate"
+TRANSLATE_URL = "https://translation-api-o0gb.onrender.com/translate"
 
 # Paths in the workspace
 WORKSPACE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
